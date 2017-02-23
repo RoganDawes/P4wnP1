@@ -4,11 +4,13 @@ This script emulates an **Ethernet over USB** device on a Raspberry Pi Zero in o
 
 This project is considered work in progress. Not all setup steps are automated, neither are typos removed from the comments - but there are many comments (in fact more than code). So if you're interested, feel free to reuse anything you want. Please don't open issues because something doesn't work, while the project isn't in final state.
 
-Creds to
+Credits to
 --------
-:Samy Kamkar:                   PoisonTap
-:Rob 'MUBIX' Fuller:            "Snagging creds from locked machines"
-:Laurent Gaffie (lgandx):       Responder
+Samy Kamkar:                   `PoisonTap <https://github.com/samyk/poisontap>`_ 
+
+Rob 'MUBIX' Fuller:            `"Snagging creds from locked machines" <https://room362.com/post/2016/snagging-creds-from-locked-machines/>`_ and MUBIX at `github <https://github.com/mubix>`_
+
+Laurent Gaffie (lgandx):           `Responder <https://github.com/lgandx/Responder>`_
 
 Requirements
 ------------
@@ -40,7 +42,9 @@ PoisonTap uses the following setup:
 :IP: 1.0.0.1
 :Netmask: 0.0.0.0
 
-This means the subnet PoisonTap is using covers the whole IPv4 range. The target host receives the following setup via DHCP:
+This means the subnet PoisonTap is using covers the whole IPv4 range. 
+
+The target host receives the following setup via DHCP:
 
 :IP: somewhere between 1.0.0.1-50
 :Netmask: 128.0.0.0 !!
@@ -84,11 +88,12 @@ Target setup via DHCP:
 
      128.0.0.0/1 via 172.16.0.1 (route upper IPv4 half through Raspberry) !!
 
-Now all traffic to IPs for which there isn't a more specific route defined on the target (this should match every public IPv4 address on standard clients) are routed through the P4wnP1. In order to intercept this traffic, all packets meant to be routed are redirected to 127.0.0.1 (localhost) on P4wnP1. The only thing left is to run the proper servers on P4wnP1. The example setup uses Responder to provide a listener for the most common services (HTTP, HTTPS, POP3, IMAP, SMTP, DNS, NETBIOS, LDAP, Kerberos, SQL). This behavior could be changed easily in order to customize P4wnP1 for other tasks.
+Now all IPv4 traffic is routed to P4wnP1, because, for most targets the two added routes are more specific than the existing ones. In order to intercept and respond to this traffic, all packets flowing through P4wnP1 are redirected to 127.0.0.1 (localhost). The only thing left is to run the respective servers on localhost. The example setup uses Responder to provide a listener for the most common services (HTTP, HTTPS, POP3, IMAP, SMTP, DNS, NETBIOS, LDAP, Kerberos, SQL). This behavior could be changed easily in order to customize P4wnP1 for other tasks.
 
 It should be noted, that LLMNR, Netbios and DNS requests are answered by Responder with the IP address of P4wnP1. Under normal circumstances this isn't needed, as every IPv4 address is rooted to P4wnP1 anyway, but there are some special uses cases:
 
 - DNS requests for IPv6 hosts resolve to the IPv4 address of P4wnP1 now
+- If the target doesn't accept the static routes delivered via DHCP, hosts could still be spoofed in case the P4wnP1 DNS i used or name resolution is done via NBT-NS/LLMNR broadcast
 - Formerly unknown hosts get mapped to P4wnP1's IP, too (LLMNR)
 - Even non existing hosts get mapped to P4wnP1. 
   This could be tested by running `ping notexistinghostname` from a windows target and P4wnP1 should reply from 172.16.0.1
