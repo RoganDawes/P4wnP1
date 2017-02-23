@@ -21,14 +21,14 @@ Requirements
 
 Notes/Features
 --------------
-- The Pi acts as **Ethernet over USB Composite Device**. The target hosts is provided with RNDIS for Windows and CDC ECM for Linux/Unix like machines.
+- The Pi acts as **Ethernet over USB Composite Device**. The target host is provided with an RNDIS configuration for Windows and CDC ECM configuration for Linux/Unix like machines.
 - The RNDIS setup should support **automatic PnP driver installation on Windows** (Microsoft OS Descriptors added to the USB descriptor and tested on Windows 7 and Windows 10).
 - The Setup works well on USB 2.0 Ports (only in some cases on USB3.0)
 - The script **detects if RNDIS or CDC ECM** is used, by polling the link state of both internal interfaces. If RNDIS (usb0) is detected to be active CDC ECM gets disabled (usb1). If CDC ECM (usb1) gets link, RNDIS (usb0) will be disabled. If neither one gets link both are disabled after RETRY_COUNT_LINK_DETECTION attempts.
 - Because only one adapter is used after link detection, the **DHCP setup doesn't differ between Windows and Linux**. This comes in handy if this should be used to trigger reverse connections, as the IP of the Raspberry is always known.
 - The initial idea was to **steal NTLM hashes from locked machines**, as shown by MUBIX. The underlying issue seems to be addressed by Microsoft with MS16-112. Unfortunately this vector is still alive, see "Snagging creds from locked machines after MS16-112" for details.
-- To raise the chance of NTLM hash capturing on boxes with MS16-112 patch applied, the setup of **P4wnP1 intercepts communication to every public IPv4 address** (see section "Modification to PoisonTap approach of fetching traffic to the whole IPv4 address range" for details). Additionally, names resolved via DNS, LLMNR and NBT-NS always end up on P4wnP1's IP as long as the device is connected.
-- **Every hostname resoves to the IP of P4wnP1** (DNS, Netbios, LLMNR)
+- To raise the chance of NTLM hash capturing on boxes with MS16-112 patch applied, the setup of **P4wnP1 intercepts communication to every public IPv4 address** (see section "Modification to PoisonTap approach of fetching traffic to the whole IPv4 address range" for details).
+- Additionally, **every hostname is resolved to the IP of P4wnP1** (DNS, Netbios, LLMNR)
 - All outgoing **HTTP requests are intercepted** and answered with custom HTML content. The HTML page holds a payload which **forces the client to initiate an authenticated SMB request**. This again **allows capturing NTLM hashes** of the target host in many cases. A modified version of Responder.py is used to achieve this.
 - As Responder has capabilities to handle other protocols, the following traffic is **intercepted in addition: SQL, Kerberos, FTP, POP3, SMTP, IMAP, LDAP, HTTPS**
 - To make P4wnPi behave naturally, **Responder.py has been patched with the following additional functionality** :
@@ -88,12 +88,12 @@ Target setup via DHCP:
 
      128.0.0.0/1 via 172.16.0.1 (route upper IPv4 half through Raspberry) !!
 
-Now all IPv4 traffic is routed to P4wnP1, because, for most targets the two added routes are more specific than the existing ones. In order to intercept and respond to this traffic, all packets flowing through P4wnP1 are redirected to 127.0.0.1 (localhost). The only thing left is to run the respective servers on localhost. The example setup uses Responder to provide a listener for the most common services (HTTP, HTTPS, POP3, IMAP, SMTP, DNS, NETBIOS, LDAP, Kerberos, SQL). This behavior could be changed easily in order to customize P4wnP1 for other tasks.
+Now all IPv4 traffic is routed to P4wnP1, because, for most targets the two added routes are more specific than the existing ones. In order to intercept and respond to this traffic, all packets flowing through P4wnP1 are redirected to 127.0.0.1 (localhost). The only thing left, is to run the respective servers on localhost. The example setup uses Responder to provide a listener for the most common services (HTTP, HTTPS, POP3, IMAP, SMTP, DNS, NETBIOS, LDAP, Kerberos, SQL). This behavior could be changed easily in order to customize P4wnP1 for other tasks (for example, a more specific iptables rule could be added in, to redirect traffic targeting TCP port 80 to 127.0.0.1:1337 and run a nodejs server on this port... this should be familiar to the folks using PoisonTap).
 
 It should be noted, that LLMNR, Netbios and DNS requests are answered by Responder with the IP address of P4wnP1. Under normal circumstances this isn't needed, as every IPv4 address is rooted to P4wnP1 anyway, but there are some special uses cases:
 
-- DNS requests for IPv6 hosts resolve to the IPv4 address of P4wnP1 now
-- If the target doesn't accept the static routes delivered via DHCP, hosts could still be spoofed in case the P4wnP1 DNS i used or name resolution is done via NBT-NS/LLMNR broadcast
+- DNS requests for IPv6 hosts resolve to the IPv4 address of P4wnP1 now (except isatap)
+- If the target doesn't accept the static routes delivered via DHCP, external hosts could still be spoofed in case the P4wnP1 DNS is used or name resolution is done via NBT-NS/LLMNR broadcast
 - Formerly unknown hosts get mapped to P4wnP1's IP, too (LLMNR)
 - Even non existing hosts get mapped to P4wnP1. 
   This could be tested by running `ping notexistinghostname` from a windows target and P4wnP1 should reply from 172.16.0.1
