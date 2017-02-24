@@ -41,6 +41,14 @@ if ! grep -q -E "Raspbian.*jessie" /etc/os-release ; then
 fi
 echo "...[pass] Pi seems to be running Raspbian Jessie"
 
+startdir=$(pwd)
+
+# Check if script is ran from /home/pi, copy over files otherwise
+if [ "$(pwd)" != "/home/pi" ]; then 
+	echo "Setup isn't running from /home/pi, copying over files..."; 
+	cp -R . /home/pi; 
+fi
+
 cd /home/pi
 
 # install dhcpd, git, screen, pip
@@ -100,8 +108,7 @@ cp conf/default_AccessDenied.html Responder/files/AccessDenied.html
 echo "Injecting P4wnP1 startup script..."
 if ! grep -q -E '^[[:space:]]+sudo /bin/bash /home/pi/mame82.sh$' /home/pi/.profile; then
 	echo "Addin P4wnP1 startup script to /home/pi/.profile..."
-	echo bootscript missing;
-cat << EOF > /home/pi/.profile
+cat << EOF >> /home/pi/.profile
 # add a control file, to make sure this doesn't re-run after secondary login (ssh)
 if [ ! -f /tmp/startup_runned ]; then
 	# run P4wnP1 startup script after login
