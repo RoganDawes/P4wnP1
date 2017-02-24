@@ -102,5 +102,10 @@ It should be noted, that LLMNR, Netbios and DNS requests are answered by Respond
 Snagging creds from locked machines after MS16-112
 ==================================================
 During tests of P4wnP1 a product has been found to answer NTLM authentication requests on wpad.dat on a locked and fully patched Windows 10 machine.
-The NTLM hash of the logged in user is sent, even if the machine isn't domain joined. The flaw will be reported to the respective vendor and added to the README after a patch is in delivery.
+The NTLM hash of the logged in user is sent, even if the machine isn't domain joined. The flaw has been reported to the respective vendor. Details will be added to the readme as soon as a patch is available. For now I'll recently update the disclosure timeline here.
+
+Disclosure Timeline discovered NTLM hash leak:
+
+:Feb-23-2017: Initial report submitted to vendor (Email)
+
 Of course you're free to try this on your own. Hint: The product doesn't fire requests to wpad.dat immediately, it could take several minutes.
