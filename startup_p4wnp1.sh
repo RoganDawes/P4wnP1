@@ -91,7 +91,7 @@ echo "deadbeefdeadbeef" > strings/0x409/serialnumber
 # set manufacturer
 echo "MaMe82" > strings/0x409/manufacturer
 # set product
-echo "Pi Zero WPAD USB hash stealer" > strings/0x409/product
+echo "P4wnP1 by MaMe82" > strings/0x409/product
 
 # create configuration 1 instance (for RNDIS for windows, as there's no ECM support)
 # ===============================================================================
