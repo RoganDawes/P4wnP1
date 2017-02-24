@@ -19,8 +19,9 @@
 # - [done, untested] patch /home/pi/.profile to contain "sudo /home/pi/startup_p4wnp1.sh" as the script is meant to be runned
 #   in interactive mode. This is needed to be able to abort the "Link detection mode". In order to have
 #   the script running at startup autologin has to be enabled for the user pi!
-# - [done and needed as nameserver is set to 127.0.0.1 by apt-get] set DNS entry in /etc/resolv.conf in order to connect to Internet via target host if needed 
-#	(no description how to setup target here, as too much off topic stuff ... google helps)
+# - [done] set DNS entry in /etc/resolv.conf in order to connect to Internet via target host if needed
+#	Putting a nameserver into /etc/resolv.conf is neeeded during setup, as it got reset to 127.0.0.1 during
+#	apt-get install... (may be caused by dnsmasq package)
 # - [done] implement checks to see of all requirements are met (raspbian jessie, auto logon, packages ...)
 # - [open] revert changes in case something fails (could be used to uninstall)
 # - [done] check if /boot/cmdline.txt has been changed to load USB gadget modules (modules-load=dwc2,g_ether) and undo this additions
