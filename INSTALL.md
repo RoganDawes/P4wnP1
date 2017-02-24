@@ -62,3 +62,4 @@ By default P4wnP1 polls for link to the host for only 1 minute. On some systems 
 1. Unplug and re-plug P4wnP1 two to three times, till the driver is installed
 2. Increase the value of "RETRY_COUNT_LINK_DETECTION" in the startup script, to give the target host more time for driver installation.
 
+Depending on the patches applied on a Windows target, driver installation only works if screen isn't locked.
