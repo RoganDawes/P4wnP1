@@ -5,12 +5,16 @@ This script emulates an **Ethernet over USB** device on a Raspberry Pi Zero in o
 This project is considered work in progress. Not all setup steps are automated, neither are typos removed from the comments - but there are many comments (in fact more than code). So if you're interested, feel free to reuse anything you want. Please don't open issues because something doesn't work, while the project isn't in final state.
 
 Credits to
---------
+----------
 Samy Kamkar:                   `PoisonTap <https://github.com/samyk/poisontap>`_ 
 
 Rob 'MUBIX' Fuller:            `"Snagging creds from locked machines" <https://room362.com/post/2016/snagging-creds-from-locked-machines/>`_ and MUBIX at `github <https://github.com/mubix>`_
 
 Laurent Gaffie (lgandx):           `Responder <https://github.com/lgandx/Responder>`_
+
+Setup Instructions
+------------------
+Refer to `INSTALL.md <https://github.com/mame82/P4wnP1/blob/master/INSTALL.md>`_ (including usage example)
 
 Requirements
 ------------
