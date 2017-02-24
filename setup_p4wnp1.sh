@@ -16,14 +16,30 @@
 # - [done, not tested] add "libcomposite" to /etc/modules
 # - [done] create entries in /etc/network/interfaces to exclude RNDIS/ECM from automatic configuration
 # - [nothing to do right now] do not: create init.d service to setup USB gadgets on boot, us .profile instead
-# - patch /home/pi/.profile to contain "sudo /home/pi/startup_p4wnp1.sh" as the script is meant to be runned
+# - [done, untested] patch /home/pi/.profile to contain "sudo /home/pi/startup_p4wnp1.sh" as the script is meant to be runned
 #   in interactive mode. This is needed to be able to abort the "Link detection mode". In order to have
 #   the script running at startup autologin has to be enabled for the user pi!
 # - set DNS entry in /etc/resolv.conf in order to connect to Internet via target host if needed 
 #	(no description how to setup target here, as too much off topic stuff ... google helps)
-# - implement checks to see of all requirements are met (raspbian jessie, auto logon, packages ...)
+# - [done] implement checks to see of all requirements are met (raspbian jessie, auto logon, packages ...)
 # - revert changes in case something fails (could be used to uninstall)
+# - [done] check if /boot/cmdline.txt has been changed to load USB gadget modules (modules-load=dwc2,g_ether) and undo this additions
 
+# check Internet conectivity against 
+echo "Testing Internet connection and name resolution..."
+if [ "$(curl -s http://www.msftncsi.com/ncsi.txt)" != "Microsoft NCSI" ]; then 
+        echo "...[Error] No Internet connection or name resolution doesn't work! Exiting..."
+        exit
+fi
+echo "...[pass] Internet connection works"
+
+# check for Raspbian Jessie
+echo "Testing if the system runs Raspbian Jessie..."
+if ! grep -q -E "Raspbian.*jessie" /etc/os-release ; then 
+        echo "...[Error] Pi is not running Raspbian Jessie! Exiting ..."
+        exit
+fi
+echo "...[pass] Pi seems to be running Raspbian Jessie"
 
 cd /home/pi
 
@@ -105,7 +121,7 @@ fi
 
 
 # enable autologin for user pi (requires RASPBIAN JESSIE LITE, should be checked)
-echo "Enable auto login for user pi..."
+echo "Enable autologin for user pi..."
 sudo ln -fs /etc/systemd/system/autologin@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
 
 # setup USB gadget capable overlay FS (needs Pi Zero, but shouldn't be checked - setup must 
@@ -114,9 +130,12 @@ echo "Enable overlay filesystem for USB gadgedt suport..."
 sudo sed -n -i -e '/^dtoverlay=/!p' -e '$adtoverlay=dwc2' /boot/config.txt
 
 # add libcomposite to /etc/modules
-echo "Enable kerel module for USB Composite Device emulation..."
+echo "Enable kernel module for USB Composite Device emulation..."
 if [ ! -f /tmp/modules ]; then sudo touch /etc/modules; fi
 sudo sed -n -i -e '/^libcomposite/!p' -e '$alibcomposite' /etc/modules
+
+echo "Removing all former modules enabled in /boot/cmdline.txt..."
+sudo sed -i -e 's/modules-load=.*dwc2[',''_'a-zA-Z]*//' /boot/cmdline.txt
 
 echo "If you came till here without errors, you shoud be good to go with your P4wnP1..."
 echo "...if not - sorry, you're on your own, as this is work in progress"
