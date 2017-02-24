@@ -60,6 +60,11 @@ sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3
 #sudo apt-get install -y tshark tcpdump
 
 # at this point the nameserver in /etc/resolv.conf is set to 127.0.0.1, so we replace it with 8.8.8.8
+#	Note: 
+#	A better way would be to backup before dnsmasq install, with
+#		$ sudo bash -c "cat /etc/resolv.conf > /tmp/backup"
+#	and restore here with
+#		$ sudo bash -c "cat /tmp/backup > /etc/resolv.conf"
 sudo bash -c "echo nameserver 8.8.8.8 > /etc/resolv.conf"
 
 # install pycrypto
