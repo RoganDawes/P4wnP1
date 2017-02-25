@@ -109,15 +109,22 @@ echo "Configure Responder..."
 sudo mkdir -p /var/www
 sudo chmod a+r /var/www
 cp conf/default_Responder.conf Responder/Responder.conf
-cp conf/default_index.html /var/www/index.html
+sudo cp conf/default_index.html /var/www/index.html
 sudo chmod a+r /var/www/index.html
+
+
+# create 128 MB image for USB storage
+echo "Creating 128 MB image for USB Mass Storage emulation"
+dd if=/dev/zero of=$wdir/USB_STORAGE/image.bin bs=1M count=128
+mkdosfs $wdir/USB_STORAGE/image.bin
 
 
 # insert startup scrip into /home/pi/.profile if not present
 echo "Injecting P4wnP1 startup script..."
-if ! grep -q -E '^[[:space:]]+sudo /bin/bash $wdir/mame82.sh$' /home/pi/.profile; then
+if ! grep -q -E '^.+P4wnP1 STARTUP$' /home/pi/.profile; then
 	echo "Addin P4wnP1 startup script to /home/pi/.profile..."
 cat << EOF >> /home/pi/.profile
+# P4wnP1 STARTUP
 # add a control file, to make sure this doesn't re-run after secondary login (ssh)
 if [ ! -f /tmp/startup_runned ]; then
 	# run P4wnP1 startup script after login

@@ -135,6 +135,21 @@ echo 8 > functions/hid.g1/report_length
 cat $wdir/report_desc > functions/hid.g1/report_desc
 
 
+# Create USB Mass storage
+# ==============================
+mkdir -p functions/mass_storage.usb0
+echo 1 > functions/mass_storage.usb0/stall # allow bulk EPs
+echo 0 > functions/mass_storage.usb0/lun.0/cdrom # don't emulate CD-ROm
+echo 0 > functions/mass_storage.usb0/lun.0/ro # write acces
+# enable Force Unit Access (FUA) to make Windows write synchronously
+# this is slow, but unplugging the stick without unmounting works
+echo 0 > functions/mass_storage.usb0/lun.0/nofua 
+echo $wdir/USB_STORAGE/image.bin > functions/mass_storage.usb0/lun.0/file
+
+# Create ACM serial adapter (disable, use SSH)
+# ============================================
+#mkdir -p functions/acm.GS0
+
 
 # add OS specific device descriptors to force Windows to load RNDIS drivers
 # =============================================================================
@@ -166,6 +181,9 @@ echo 5162001 > functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id
 ln -s functions/rndis.usb0 configs/c.1/ # RNDIS on config 1 # RNDIS has to be the first interface on Composite device
 ln -s functions/hid.g1 configs/c.1/ # HID on config 1
 ln -s functions/ecm.usb1 configs/c.1/ # ECM on config  1
+ln -s functions/mass_storage.usb0 configs/c.1/ # USB Mass Storage on config  1
+#ln -s functions/acm.GS0 configs/c.1/ # USB Mass Storage on config  1
+
 ln -s configs/c.1/ os_desc # add config 1 to OS descriptors
 
 

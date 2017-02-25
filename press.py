@@ -26,6 +26,6 @@ payload_filename="hid.raw"
 fd = open(device_filename,'wb')
 
 # content from hid.raw (generated with duckencoder)
-send_duck_payload("hid.raw",fd)
+send_duck_payload(payload_filename,fd)
 
 fd.close()
