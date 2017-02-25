@@ -128,17 +128,12 @@ cat << EOF >> /home/pi/.profile
 # add a control file, to make sure this doesn't re-run after secondary login (ssh)
 if [ ! -f /tmp/startup_runned ]; then
 	# run P4wnP1 startup script after login
-	sudo /bin/bash $wdir/startup_p4wnp1.sh
 	touch /tmp/startup_runned
-	echo "Opening responder screen session in 3 seconds. <CTRL> + <A>, <D> to detach!"
-	echo "or run 'sudo screen -d -r responder' in ssh console to re-attach to there"
-	echo "Don't use <CTRL> + <C> to leave the screen session, this will kill Responder"
-	sleep 3
-	sudo screen -r responder
+	sudo /bin/bash $wdir/startup_p4wnp1.sh
 fi
-echo "Run 'sudo screen -d -r' to attach to running responder session"
-echo "Don't use <CTRL> + <C> to leave the screen session, this will kill Responder"
-echo "Use <CTRL> + <A>, <D> instead to detach again"
+source $wdir/setup.cfg
+source $wdir/payloads/\$PAYLOAD
+onLogin
 EOF
 fi
 

