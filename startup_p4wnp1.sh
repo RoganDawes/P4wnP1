@@ -6,8 +6,6 @@
 #
 # Notes:
 # 	- setup_p4wnp1.sh should be ran before using this script
-#	- the script is meant to run after interactive login (not init), but with root privileges (sudo)
-#	  although this increases boot time, this is needed to be able to abort link detection
 #	- refer to comments for "inner workings"
 #	- work in progress (contains possible errors and typos)
 #	- if the device isn't detected changing the USB port (USB 2.0 prefered) or plug out and in
@@ -17,27 +15,11 @@
 #
 #
 # ToDo:
-#	- add and test HID fuction (first keyboard only)
 #	- add manual system date adjusment, to not mess up logs due to missing NTP (store datetime of last boot)
-#	- devide the script into multiple stages, to run link detection on seperate thread
-#	  this again allows moving the script to an init service to shorten boot time
 #	- after implementing multiple stages, add in LED support to highlight which stage currently is ran
 #	  by  P4wnP1
 #	- add shutdown capability to script, to allow file system syncing before power loss
-#	- move files only needed at runtime to /tmp to avoid manual deletion (f.e. DHCP leases)
-#	- check for hosts supporting both, RNDIS and CDC ECM, to use ECM in favor
-#	- extract "setup" varibles into an external configuration file
-#	- check for needed privileges before running the script
-
-
-# To force Windows to detect a Cmomposite Gadget (RNDIS+HID), several conditions have to be met:
-#	- only one device configuration (we use a second for ecm)
-#	- class / subclass / proto have to be set to 0x00 / 0x00 / 0x00 (to enumerate device classes
-#	per interface, we need class 0x03 for HID and 0x02 for RNDIS)
-#	- alternatively  class/subclass/proto could be set to EF/02/01 for Composite Device
-#	- in order to avoid that windows detects the RNDIS device as searial com port, we have to add in custom
-#	OS descriptors with compat_id=RNDIS and sub_compat_id=5162001
-
+#	- detect if HID works (send CAPS_LOCK and read back LED byte), add payload callback onHIDstarted
 
 # find working dir of script
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && pwd)
@@ -252,6 +234,13 @@ EOF
 	# start DHCP server (listening on IF_IP)
 	dnsmasq -C $wdir/dnsmasq.conf
 }
+
+# output to HID
+function outhid()
+{
+	cat | python $wdir/duckencoder/duckencoder.py -l $lang -r | python $wdir/transhid.py > /dev/hidg0
+}
+
 
 function detect_active_interface()
 {

