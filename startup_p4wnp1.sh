@@ -105,7 +105,7 @@ mkdir -p functions/hid.g1
 echo 1 > functions/hid.g1/protocol
 echo 1 > functions/hid.g1/subclass
 echo 8 > functions/hid.g1/report_length
-cat $wdir/report_desc > functions/hid.g1/report_desc
+cat $wdir/conf/report_desc > functions/hid.g1/report_desc
 fi
 
 # Create USB Mass storage
