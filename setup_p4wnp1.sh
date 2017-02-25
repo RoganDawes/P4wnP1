@@ -28,6 +28,10 @@
 # - download and extract of JtR jumbo has to be added (https://github.com/mame82/john-1-8-0-jumbo_raspbian_jessie_precompiled)
 #	--> used by get_and_crack_last.sh
 
+
+# get DIR the script is running from (by CD'ing in and running pwd
+wdir=$( cd $(dirname $BASH_SOURCE[0]) && pwd)
+
 # check Internet conectivity against 
 echo "Testing Internet connection and name resolution..."
 if [ "$(curl -s http://www.msftncsi.com/ncsi.txt)" != "Microsoft NCSI" ]; then 
@@ -44,15 +48,6 @@ if ! grep -q -E "Raspbian.*jessie" /etc/os-release ; then
 fi
 echo "...[pass] Pi seems to be running Raspbian Jessie"
 
-startdir=$(pwd)
-
-# Check if script is ran from /home/pi, copy over files otherwise
-if [ "$(pwd)" != "/home/pi" ]; then 
-	echo "Setup isn't running from /home/pi, copying over files..."; 
-	cp -R . /home/pi; 
-fi
-
-cd /home/pi
 
 # install dhcpd, git, screen, pip
 echo "Installing needed packages..."
@@ -74,11 +69,10 @@ echo "Installing needed python additions..."
 pip install pycrypto
 
 
-# clone Responder from git
-echo "Installing Responder (patched MaMe82 branch with Internet connection emulation and wpad additions)..."
-#git clone https://github.com/spiderlabs/responder
+# Installing Responder isn't needed anymore as it is packed into the Repo as submodule
+#echo "Installing Responder (patched MaMe82 branch with Internet connection emulation and wpad additions)..."
 # clone Responder from own repo (at least till patches are merged into master)
-git clone -b EMULATE_INTERNET_AND_WPAD_ANYWAY --single-branch https://github.com/mame82/Responder
+#git clone -b EMULATE_INTERNET_AND_WPAD_ANYWAY --single-branch https://github.com/mame82/Responder
 
 # disable interfering services
 echo "Disabeling unneeded services to shorten boot time ..."
@@ -107,22 +101,27 @@ else
 	echo "Entry for manual configuration of CDC ECM interface found"
 fi
 
+echo "Unpacking John the Ripper Jumbo edition..."
+tar xJf john-1-8-0-jumbo_raspbian_jessie_precompiled/john-1.8.0-jumbo-1_precompiled_raspbian_jessie.tar.xz
 
 # overwrite Responder configuration
 echo "Configure Responder..."
+sudo mkdir -p /var/www
+sudo chmod a+r /var/www
 cp conf/default_Responder.conf Responder/Responder.conf
-cp conf/default_AccessDenied.html Responder/files/AccessDenied.html
+cp conf/default_index.html /var/www/index.html
+sudo chmod a+r /var/www/index.html
 
 
 # insert startup scrip into /home/pi/.profile if not present
 echo "Injecting P4wnP1 startup script..."
-if ! grep -q -E '^[[:space:]]+sudo /bin/bash /home/pi/mame82.sh$' /home/pi/.profile; then
+if ! grep -q -E '^[[:space:]]+sudo /bin/bash $wdir/mame82.sh$' /home/pi/.profile; then
 	echo "Addin P4wnP1 startup script to /home/pi/.profile..."
 cat << EOF >> /home/pi/.profile
 # add a control file, to make sure this doesn't re-run after secondary login (ssh)
 if [ ! -f /tmp/startup_runned ]; then
 	# run P4wnP1 startup script after login
-	sudo /bin/bash /home/pi/startup_p4wnp1.sh
+	sudo /bin/bash $wdir/startup_p4wnp1.sh
 	touch /tmp/startup_runned
 	echo "Opening responder screen session in 3 seconds. <CTRL> + <A>, <D> to detach!"
 	echo "or run 'sudo screen -d -r responder' in ssh console to re-attach to there"
@@ -162,5 +161,5 @@ echo
 echo "Responder logs are saved to /home/pi/Responder/logs (but are mixed during boots"
 echo "due to the missing NTP server, so delete them if you don't need them)"
 echo "Interesting stuff like NTLM hashes is dumped into sqlite DB at:"
-echo "/home/pi/Responder/Responder.db"
+echo "$wdir/Responder/Responder.db"
 echo
