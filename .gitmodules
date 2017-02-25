@@ -1,6 +1,6 @@
 [submodule "duckencoder"]
 	path = duckencoder
 	url = https://github.com/mame82/duckencoder.py
-[submodule "john-tar"]
-	path = john-tar
+[submodule "john-1-8-0-jumbo_raspbian_jessie_precompiled"]
+	path = john-1-8-0-jumbo_raspbian_jessie_precompiled
 	url = https://github.com/mame82/john-1-8-0-jumbo_raspbian_jessie_precompiled
