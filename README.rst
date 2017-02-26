@@ -5,10 +5,10 @@ P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspber
 
 P4wnP1 Features
 ---------------
-- Support for HID Keyboard
-- Support for USB Mass storage (currently only in demo setup with 1 Megabyte Drive)
-- Support for Windows Networking via RNDIS
-- Support for MacOS / Linux Networking via CDC ECM
+- Support for **HID Keyboard**
+- Support for **USB Mass storage** (currently only in demo setup with 1 Megabyte Drive)
+- Support for **Windows Networking via RNDIS**
+- Support for **MacOS / Linux Networking via CDC ECM**
 - All the Features mentioned work with Windows Class Drivers (Plug and Play)
 - **All USB features work in parallel if needed (Composite Device RNDIS, USB Mass Storage, HID)**
 - **Customizable simple payload scripts** (see payloads/payload1.txt for an example)
@@ -18,6 +18,8 @@ P4wnP1 Features
 - **Multi Keyboard language layout support** via Setup.cfg (no Need to worry about target language when using HID commands)
 - Automatic Link detection i both (RNDIS and ECM) Network Interfaces are enabled
 - Payload callbacks when target activates network, when target receives DHCP lease, when device is booted
+- If an USB OTG adapter is connected, P4wnP1 boots into interactive mode without running the payload, which allows easy configuration
+- SSH server is running by default
 
 Credits to
 ----------

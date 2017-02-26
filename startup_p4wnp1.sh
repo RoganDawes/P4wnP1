@@ -356,9 +356,6 @@ function detect_active_interface()
 
 
 
-(
-	detect_active_interface
-	# call back on payload
-	onBootFinished
-)&
+detect_active_interface&
+onBootFinished
 
