@@ -21,6 +21,17 @@
 #	- add shutdown capability to script, to allow file system syncing before power loss
 #	- detect if HID works (send CAPS_LOCK and read back LED byte), add payload callback onHIDstarted
 
+
+hostname p4wnp1
+echo p4wnp1 > /etc/hostname
+
+# set manual configuration for usb1 (CDC ECM) if not already done
+if ! grep -q -E '^127\.0\.0\.1 p4wnp1$' /etc/hosts; then
+	echo "127.0.0.1 p4wnp1" >> /etc/hosts
+fi
+
+
+
 # find working dir of script
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && pwd)
 
@@ -201,6 +212,7 @@ detect_usb_hostmode
 
 function start_DHCP_server()
 {
+
 	# recreate DHCP config
 cat << EOF > $wdir/dnsmasq.conf
 port=0
@@ -235,10 +247,18 @@ EOF
 	dnsmasq -C $wdir/dnsmasq.conf
 }
 
-# output to HID
+# output raw ASCII to HID keyboard
 function outhid()
 {
-	cat | python $wdir/duckencoder/duckencoder.py -l $lang -r | python $wdir/transhid.py > /dev/hidg0
+#	cat | python $wdir/duckencoder/duckencoder.py -l $lang -r | python $wdir/transhid.py > /dev/hidg0
+	cat | python $wdir/duckencoder/duckencoder.py -l $lang -r | python $wdir/transhid.py 
+}
+
+# output DUCKY SCRIPT to HID keyboard
+function duckhid()
+{
+#	cat | python $wdir/duckencoder/duckencoder.py -l $lang -p | python $wdir/transhid.py > /dev/hidg0
+	cat | python $wdir/duckencoder/duckencoder.py -l $lang -p | python $wdir/transhid.py 
 }
 
 

