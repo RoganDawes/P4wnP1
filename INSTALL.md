@@ -32,7 +32,7 @@ Enter the following commands to install P4wnP1:
 
     sudo apt-get -y install git
     cd /home/pi
-    git clone https://github.com/mame82/P4wnP1
+    git clone --recursive https://github.com/mame82/P4wnP1
     cd P4wnP1
     ./setup_p4wnp1.sh
 
