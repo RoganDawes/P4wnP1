@@ -1,9 +1,12 @@
-# Demo payload
+# P4wnP1 demo payload by MaMe82
+# ==========================
 # starts Responder on RNDIS / CDC ECM interface
 # prints out stats in several payload stages via HID keyboard on target
 # prints out some stats to screen of P4wnP1
 # automatically brings Responder screen session to front on login
 # (the session could be detached by pressin <CTRL>+<A> , <D>)
+# Don't forget to change keyboard language to your locale
+
 
 # =============================
 # USB setup
@@ -26,7 +29,7 @@ IF_DHCP_RANGE="172.16.0.2,172.16.0.3" # DHCP Server IP Range
 # =====================
 # Keyboard config
 # =====================
-lang="de" # Keyboard language for outhid and duckhid commands
+lang="us" # Keyboard language for outhid and duckhid commands
 
 
 # This function gets called after the target network interface is working
