@@ -30,6 +30,14 @@
 #	- check for needed privileges before running the script
 
 
+# To force Windows to detect a Cmomposite Gadget (RNDIS+HID), several conditions have to be met:
+#	- only one device configuration (we use a second for ecm)
+#	- class / subclass / proto have to be set to 0x00 / 0x00 / 0x00 (to enumerate device classes
+#	per interface, we need class 0x03 for HID and 0x02 for RNDIS)
+#	- alternatively  class/subclass/proto could be set to EF/02/01 for Composite Device
+#	- in order to avoid that windows detects the RNDIS device as searial com port, we have to add in custom
+#	OS descriptors with compat_id=RNDIS and sub_compat_id=5162001
+
 # =======================
 # Configuration options
 # =======================
@@ -65,24 +73,19 @@ cd $GADGETS_DIR
 # configure gadget details
 # =========================
 # set Vendor ID to "Linux Foundation"
-#echo 0x1d6b > idVendor
-echo 0xc1cb > idVendor
+echo 0xc1cb > idVendor # RNDIS
 # set Product ID to "Multifunction Composite Gadget"
-#echo 0x0104 > idProduct
-echo 0xbaa2 > idProduct
+echo 0xbaa2 > idProduct # RNDIS
 # set device version 1.0.0
 echo 0x0100 > bcdDevice
 # set USB mode to USB 2.0
 echo 0x0200 > bcdUSB
 
-# composite device settings detectable on windows
-# see "Enumeration of USB Composite Devices (Windows Drivers)" on MSDN
-#echo 0xEF > bDeviceClass
-#echo 0x02 > bDeviceSubClass
-#echo 0x01 > bDeviceProtocol
-echo 0x02 > bDeviceClass
-echo 0x00 > bDeviceSubClass
-echo 0x00 > bDeviceProtocol
+
+# composite class / subclass / proto (needs single configuration)
+echo 0xEF > bDeviceClass
+echo 0x02 > bDeviceSubClass
+echo 0x01 > bDeviceProtocol
 
 # set device descriptions
 mkdir -p strings/0x409 # English language strings
@@ -93,21 +96,13 @@ echo "MaMe82" > strings/0x409/manufacturer
 # set product
 echo "P4wnP1 by MaMe82" > strings/0x409/product
 
-# create configuration 1 instance (for RNDIS for windows, as there's no ECM support)
-# ===============================================================================
+# create configuration instance (for RNDIS, ECM and HDI in a SINGLE CONFIGURATION to support Windows composite device enumeration)
+# ================================================================================================================================
 mkdir -p configs/c.1/strings/0x409
 echo "Config 1: RNDIS network" > configs/c.1/strings/0x409/configuration
 echo 250 > configs/c.1/MaxPower
 #echo 0xC0 > configs/c.1/bmAttributes # self powered device
 echo 0x80 > configs/c.1/bmAttributes #  USB_OTG_SRP | USB_OTG_HNP
-
-# create configuration 2 instance (for CDC ECM supported on Linux)
-# ===============================================================================
-mkdir -p configs/c.2/strings/0x409
-echo "Config 2: ECM network" > configs/c.2/strings/0x409/configuration
-echo 250 > configs/c.2/MaxPower
-#echo 0xC0 > configs/c.2/bmAttributes # self powered device
-echo 0x80 > configs/c.2/bmAttributes # USB_OTG_SRP | USB_OTG_HNP
 
 # create RNDIS function
 # =======================================================
@@ -126,13 +121,20 @@ echo "42:63:65:12:34:56" > functions/ecm.usb1/host_addr
 # set up local mac address 
 echo "42:63:65:65:43:21" > functions/ecm.usb1/dev_addr
 
-# create CDC ACM function
+
+# create HID function
 # =======================================================
-#mkdir -p functions/acm.GS0
+mkdir -p functions/hid.g1
+echo 1 > functions/hid.g1/protocol
+echo 1 > functions/hid.g1/subclass
+echo 8 > functions/hid.g1/report_length
+cat /home/pi/report_desc > functions/hid.g1/report_desc
+
+
 
 # add OS specific device descriptors to force Windows to load RNDIS drivers
 # =============================================================================
-# Witout this additional descriptors, most Windows system detect the device as "Serial COM port"
+# Witout this additional descriptors, most Windows system detect the RNDIS interface as "Serial COM port"
 # To prevent this, the Microsoft specific OS descriptors are added in here
 # !! Important:
 #	If the device already has been connected to the Windows System without providing the
@@ -147,24 +149,20 @@ echo "42:63:65:65:43:21" > functions/ecm.usb1/dev_addr
 
 mkdir -p os_desc
 echo 1 > os_desc/use
-#echo 0xcd > os_desc/b_vendor_code
 echo 0xbc > os_desc/b_vendor_code
 echo MSFT100 > os_desc/qw_sign
+
 mkdir -p functions/rndis.usb0/os_desc/interface.rndis
 echo RNDIS > functions/rndis.usb0/os_desc/interface.rndis/compatible_id
-echo "5162001" > functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id
+echo 5162001 > functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id
 
 
 # bind function instances to respective configuration
 # ====================================================
-ln -s functions/rndis.usb0 configs/c.1/ # RNDIS on config 1
-#ln -s functions/acm.GS0 configs/c.1/ # ACM on config 1
-
-ln -s functions/ecm.usb1 configs/c.2/ # ECM on config 2
-#ln -s functions/acm.GS0 configs/c.2/ # ACM on config 2
-
-# add Config 1 to Windows RNDIS OS Descriptors
-ln -s configs/c.1/ os_desc
+ln -s functions/rndis.usb0 configs/c.1/ # RNDIS on config 1 # RNDIS has to be the first interface on Composite device
+ln -s functions/hid.g1 configs/c.1/ # HID on config 1
+ln -s functions/ecm.usb1 configs/c.1/ # ECM on config  1
+ln -s configs/c.1/ os_desc # add config 1 to OS descriptors
 
 
 # check for first available UDC driver
