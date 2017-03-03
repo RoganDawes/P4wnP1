@@ -25,6 +25,8 @@
 # - [done] implement checks to see of all requirements are met (raspbian jessie, auto logon, packages ...)
 # - [open] revert changes in case something fails (could be used to uninstall)
 # - [done] check if /boot/cmdline.txt has been changed to load USB gadget modules (modules-load=dwc2,g_ether) and undo this additions
+# - download and extract of JtR jumbo has to be added (https://github.com/mame82/john-1-8-0-jumbo_raspbian_jessie_precompiled)
+#	--> used by get_and_crack_last.sh
 
 # check Internet conectivity against 
 echo "Testing Internet connection and name resolution..."
@@ -54,7 +56,7 @@ cd /home/pi
 
 # install dhcpd, git, screen, pip
 echo "Installing needed packages..."
-sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 
+sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools
 
 # not needed in production setup
 #sudo apt-get install -y tshark tcpdump
