@@ -112,5 +112,6 @@ Disclosure Timeline discovered NTLM hash leak:
 
 :Feb-23-2017: Initial report submitted to vendor (Email)
 :Feb-23-2017: Vendor reports back, investigating the issue
+:Mar-01-2017: Vendor confirmed issue, working on fix
 
 Of course you're free to try this on your own. Hint: The product doesn't fire requests to wpad.dat immediately, it could take several minutes.
