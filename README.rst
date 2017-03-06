@@ -1,5 +1,9 @@
 P4wnP1 (PiZero IPv4 traffic interceptor and USB hash stealer) by MaMe82
 =======================================================================
+
+Note: For HID support see this `currently undocumented branch <https://github.com/mame82/P4wnP1/blob/HID_support/README.rst>`_
+
+
 This script emulates an **Ethernet over USB** device on a Raspberry Pi Zero in order to **intercept packets for every single IPv4 address and every hostname the target host connects to**. In the current example it is used to steal NTLM hashes from Windows boxes (in some cases even locked ones). The work is influenced by the projects mentioned below.
 
 This project is considered work in progress. Not all setup steps are automated, neither are typos removed from the comments - but there are many comments (in fact more than code). So if you're interested, feel free to reuse anything you want. Please don't open issues because something doesn't work, while the project isn't in final state.
