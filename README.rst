@@ -1,7 +1,7 @@
 P4wnP1 (PiZero IPv4 traffic interceptor and USB hash stealer) by MaMe82
 =======================================================================
 
-P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspberrz Pi Zero or Raspberrz Pi Zero W.
+P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspberry Pi Zero or Raspberry Pi Zero W.
 
 P4wnP1 Features
 ---------------
