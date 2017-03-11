@@ -1,5 +1,5 @@
-P4wnP1 (PiZero IPv4 traffic interceptor and USB hash stealer) by MaMe82
-=======================================================================
+P4wnP1 by MaMe82
+================
 
 P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspberry Pi Zero or Raspberry Pi Zero W.
 
@@ -31,7 +31,7 @@ Laurent Gaffie (lgandx):           `Responder <https://github.com/lgandx/Respond
 
 Getting started
 ---------------
-The Default payload (payloads/payload1.txt) implements NTLM hash capturing from locked Windows boxes with Responder. The payload is well commented and should be a starting Point for customization. The payload includes various HID Keyboard Outputs, to Show the possibilities.
+The Default payload (payloads/payload1.txt) implements NTLM hash capturing from locked Windows boxes with Responder. The payload is well commented and should be a starting point for customization. The payload includes various HID Keyboard outputs, to show the possibilities.
 
 Setup Instructions
 ------------------
