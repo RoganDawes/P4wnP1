@@ -47,7 +47,7 @@ Requirements
 - the project is still work in progress, so features and new payloads are added in frequently (make sure to have an updated copy of P4wnP1)
 
 Snagging creds from locked machines after MS16-112
-==================================================
+--------------------------------------------------
 During tests of P4wnP1 a product has been found to answer NTLM authentication requests on wpad.dat on a locked and fully patched Windows 10 machine (including patch for MS16-112).
 The NTLM hash of the logged in user is sent by a third party software, even if the machine isn't domain joined. The flaw has been reported to the respective vendor. Details will be added to the readme as soon as a patch is available. For now I'll recently update the disclosure timeline here.
 
@@ -58,3 +58,16 @@ Disclosure Timeline discovered NTLM hash leak:
 :Mar-01-2017: Vendor confirmed issue, working on fix
 
 Of course you're free to try this on your own. Hint: The product doesn't fire requests to wpad.dat immediately, it could take several minutes.
+
+ToDo / Work In Progress
+-----------------------
+
+- Payload: HID-only based "Airgap bridge" for Pi Zero W
+- Payload: Empty template
+- Boot: Fasten up boot (change startup script to init service)
+- Payload: Android PIN bruteforce
+- Payload: Advanced NTLM capture (hand over hashes to JtR and unlock machines with weak creds immediately)
+- Usability: Additional payload callback function "onHIDKeyboardUp"
+- Payload: OS fingerprinting
+- Usability: payload command to drive RPi builtin LED
+- Usability: payload switching via GPIO pins (conneting a hardware switch)
