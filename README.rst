@@ -9,14 +9,14 @@ P4wnP1 Features
 - Support for **USB Mass storage** (currently only in demo setup with 1 Megabyte Drive)
 - Support for **Windows Networking via RNDIS**
 - Support for **MacOS / Linux Networking via CDC ECM**
-- All the Features mentioned work with Windows Class Drivers (Plug and Play)
+- All the Features mentioned work with **Windows Class Drivers (Plug and Play)**
 - **All USB features work in parallel if needed (Composite Device RNDIS, USB Mass Storage, HID)**
 - **Customizable simple payload scripts** (see payloads/payload1.txt for an example)
 - includes **Responder** and a precompiled **John the Ripper Jumbo** Version
 - Supports **DuckyScript** (could be included in payload script)
 - Supports **raw ASCII Output via HID Keyboard** (see tutorial1 for an example printing out a logfile via Keyboard on target)
 - **Multi Keyboard language layout support** via Setup.cfg (no Need to worry about target language when using HID commands)
-- Automatic Link detection i both (RNDIS and ECM) Network Interfaces are enabled
+- Automatic Link detection if both (RNDIS and ECM) Network Interfaces are enabled
 - Payload callbacks when target activates network, when target receives DHCP lease, when device is booted
 - If an USB OTG adapter is connected, P4wnP1 boots into interactive mode without running the payload, which allows easy configuration
 - SSH server is running by default
