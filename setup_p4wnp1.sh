@@ -66,7 +66,7 @@ sudo bash -c "echo nameserver 8.8.8.8 > /etc/resolv.conf"
 
 # install pycrypto
 echo "Installing needed python additions..."
-pip install pycrypto
+sudo pip install pycrypto
 
 
 # Installing Responder isn't needed anymore as it is packed into the Repo as submodule
@@ -115,6 +115,7 @@ sudo chmod a+r /var/www/index.html
 
 # create 128 MB image for USB storage
 echo "Creating 128 MB image for USB Mass Storage emulation"
+mkdir -p $wdir/USB_STORAGE
 dd if=/dev/zero of=$wdir/USB_STORAGE/image.bin bs=1M count=128
 mkdosfs $wdir/USB_STORAGE/image.bin
 
@@ -160,8 +161,6 @@ echo "...if not - sorry, you're on your own, as this is work in progress"
 echo "Attach P4wnP1 to your target and enjoy output via HDMI"
 echo "You should be able to SSH in with pi@172.16.0.1"
 echo 
-echo "Responder logs are saved to /home/pi/Responder/logs (but are mixed during boots"
-echo "due to the missing NTP server, so delete them if you don't need them)"
-echo "Interesting stuff like NTLM hashes is dumped into sqlite DB at:"
+echo "Interesting stuff like NTLM hashes gets dumped into sqlite DB at:"
 echo "$wdir/Responder/Responder.db"
 echo
