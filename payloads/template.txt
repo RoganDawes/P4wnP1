@@ -29,7 +29,7 @@ IF_DHCP_RANGE="172.16.0.2,172.16.0.3" # DHCP Server IP Range
 # =====================
 # Keyboard language for outhid and duckhid commands
 # possible languages: "be", "br", "ca", "ch", "de", "dk", "es", "fi", "fr", "gb", "hr", "it", "no", "pt", "ru", "si", "sv", "tr", "us"
-lang="de"
+lang="us"
 
 
 # This function gets called after the target host enables the network interface
