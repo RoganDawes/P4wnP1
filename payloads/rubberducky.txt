@@ -5,8 +5,13 @@
 # =============================
 # USB setup
 # =============================
-USE_ECM=false            # if true CDC ECM will be enabled
-USE_RNDIS=false          # if true RNDIS will be enabled
+# Make sure to change USB_PID if you enable different USB functionality in order
+# to force Windows to enumerate the device again
+USB_VID="0x1d6b"	# Vendor ID
+USB_PID="0x0101"	# Product ID 
+			
+USE_ECM=false           # if true CDC ECM will be enabled
+USE_RNDIS=false         # if true RNDIS will be enabled
 USE_HID=true            # if true HID (keyboard) will be enabled
 USE_UMS=false           # if true USB Mass Storage will be enabled
 
@@ -24,15 +29,17 @@ IF_DHCP_RANGE="172.16.0.2,172.16.0.3" # DHCP Server IP Range
 # Keyboard config
 # =====================
 # shouldn't matter in this payload
-lang="de"
+lang="us"
 
 
 function onNetworkUp()
 {
+	return
 }
 
 function onTargetGotIP()
 {
+	return
 }
 
 function onBootFinished()
@@ -40,11 +47,13 @@ function onBootFinished()
 # example of using DuckyScript
 cat << EOF | duckhid
 
-DELAY 500
-String Hello World
+REM Initial delay to be sure the target initialized HID keyboard driver
+REM This delay needs manual tuning
+DELAY 3000
+STRING Hello World
 ENTER
 DELAY 1000
-STRING 2 seconds delay before next output (delay test)
+STRING Waiting two seconds before next output (delay test)
 ENTER
 DELAY 2000
 STRING Delay passed by
@@ -53,9 +62,11 @@ ENTER
 EOF
 
 # example of using raw ASCII output to show some logfile entries
+echo "The following output comes from /var/log/syslog:" | outhid
 tail /var/log/syslog | outhid
 }
 
 function onLogin()
 {
+	return
 }

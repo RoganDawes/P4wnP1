@@ -44,7 +44,7 @@ source $wdir/payloads/$PAYLOAD
 # USB Init
 # ====================
 
-echo "Initializing Ethernet over USB..."
+echo "Starting P4wnP1..."
 GADGETS_DIR="mame82gadget"
 
 # configure USB gadget to provide (RNDIS like) ethernet interface
@@ -57,10 +57,12 @@ cd $GADGETS_DIR
 
 # configure gadget details
 # =========================
-# set Vendor ID to "Linux Foundation"
-echo 0xc1cb > idVendor # RNDIS
-# set Product ID to "Multifunction Composite Gadget"
-echo 0xbaa2 > idProduct # RNDIS
+# set Vendor ID
+#echo 0xc1cb > idVendor # RNDIS
+echo $USB_VID > idVendor # RNDIS
+# set Product ID
+#echo 0xbaa2 > idProduct # RNDIS
+echo $USB_PID > idProduct # RNDIS
 # set device version 1.0.0
 echo 0x0100 > bcdDevice
 # set USB mode to USB 2.0
@@ -192,14 +194,16 @@ UDC_DRIVER=$(ls /sys/class/udc | cut -f1 | head -n 1)
 # bind USB gadget to this UDC driver
 echo $UDC_DRIVER > UDC
 
+sleep 0.2 # give UDC some time to init
 
 function detect_usb_hostmode()
 {
-	otg=$(sudo grep "DCFG=0x00000000" /sys/kernel/debug/20980000.usb/state)
-	if [ "$otg" != "" ]; then
+	if grep -q "DCFG=0x00000000" /sys/kernel/debug/20980000.usb/state; then
 		echo "USB OTG Mode"
 		echo "As P4wnP1 is detected to run in Host (interactive) mode, we abort device setup now!"
 		exit
+	else
+		echo "USB OTG off, going on with P4wnP1 boot"
 	fi
 }
 

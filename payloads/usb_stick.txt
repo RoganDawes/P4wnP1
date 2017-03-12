@@ -5,6 +5,11 @@
 # =============================
 # USB setup
 # =============================
+# Make sure to change USB_PID if you enable different USB functionality in order
+# to force Windows to enumerate the device again
+USB_VID="0x1d6b"        # Vendor ID
+USB_PID="0x0102"        # Product ID
+
 USE_ECM=false            # if true CDC ECM will be enabled
 USE_RNDIS=false          # if true RNDIS will be enabled
 USE_HID=false            # if true HID (keyboard) will be enabled
@@ -29,16 +34,20 @@ lang="us"
 
 function onNetworkUp()
 {
+	return
 }
 
 function onTargetGotIP()
 {
+	return
 }
 
 function onBootFinished()
 {
+	return
 }
 
 function onLogin()
 {
+	return
 }
