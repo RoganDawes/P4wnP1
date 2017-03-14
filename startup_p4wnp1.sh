@@ -304,6 +304,11 @@ function duckhid()
 	cat | python $wdir/duckencoder/duckencoder.py -l $lang -p | python $wdir/transhid.py 
 }
 
+function key_trigger()
+{
+	sudo python $wdir/hidtools/watchhidled.py trigger
+	return $?
+}
 
 function detect_active_interface()
 {
@@ -383,7 +388,7 @@ function detect_active_interface()
 		start_DHCP_server
 
 		# call onNetworkUp() from payload
-		onNetworkUp
+		declare -f onNetworkUp > /dev/null && onNetworkUp
 
 		# wait for client to receive DHCP lease
 		target_ip=""
@@ -392,13 +397,55 @@ function detect_active_interface()
 		done
 
 		# call onNetworkUp() from payload
-		onTargetGotIP
+		declare -f onTargetGotIP > /dev/null && onTargetGotIP
 	fi
 
 }
 
+function detect_HID_keyboard()
+{
+	# trigger kernel crash, by writing data to hid device before driver is installed on target host
+#	while $true; do
+#		ls -la /dev/hidg*
+#		#echo -ne "\x00\x00\x53\x00\x00\x00\x00\x00" > /dev/hidg0
+#		echo -ne "\x00\x00\x00\x00\x00\x00\x00\x00" > /dev/hidg0
+#		cat /dev/hidg0
+#	done
+
+
+	# if USE_HID is set, start checking if keyboard is present
+	if $USE_HID && $HID_KEYBOARD_TEST; then
+		echo "Waiting for HID keyboard to be usable..."
+		# the "watchhidled.py check" presses the NUMLOCK button and reads back the LED
+		# state to detect if the keyboard is working
+		# To achieve this the NUMLOCK key press has to be written to /dev/hidg0
+		# Unfortunately writing to /dev/hidg0 results in a KERNEL PANIC (unresponsive interrupt)
+		# if the host isn't writing back data. So we don't use the LED check
+
+		#python $wdir/hidtools/watchhidled.py check
+		#res=$?
+		#if [ $res -eq 0 ]; then
+		#	echo "HID keyboard is up"
+		#	# correct result, trigger onKeyboardUp() if the function is defined in payload
+		#	declare -f onKeyboardUp > /dev/null && onKeyboardUp
+		#else
+		#	echo "Failed to detect HID Keyboard"
+		#fi
+
+		# new approach - reading back LED status from the HID report is a blocking call, which
+		# doesn't crash the kernel if the host doesn't answer. It comes in handy, that an initial
+		# report is written by the host after the driver is initialized (at least by Windows)
+		# So we use the blocking read call to detect if the HID keyboard driver is installed
+
+		# blocking read of LED status
+		python -c "with open('/dev/hidg0','rb') as f:  print ord(f.read(1))"
+		# fire 'onKeyboardUp' after read has succeeded
+		declare -f onKeyboardUp > /dev/null && onKeyboardUp
+
+	fi
+}
 
 
 detect_active_interface&
-onBootFinished
-
+detect_HID_keyboard&
+declare -f onBootFinished > /dev/null && onBootFinished

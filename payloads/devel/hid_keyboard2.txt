@@ -1,0 +1,75 @@
+# P4wnP1 demo payload by MaMe82
+# ==========================
+#
+# Emulates a HID keyboard and prints out "Keyboard is Running"
+# Uses NUMLOCK LED test, to check if target is ready to receive keystrokes
+
+
+# =============================
+# USB setup
+# =============================
+# Make sure to change USB_PID if you enable different USB functionality in order
+# to force Windows to enumerate the device again
+USB_VID="0x1d6b"        # Vendor ID
+USB_PID="0x110a"        # Product ID
+
+# Overwrite default settings (setup.cfg) for keyboard funtion
+USE_RNDIS=true          # if true RNDIS will be enabled
+USE_HID=true            # if true HID (keyboard) will be enabled
+
+# use LED based HID keyboard test, to fire callback to onKeyboardUp()
+HID_KEYBOARD_TEST=true
+
+# overwrite defaul keyboard language
+lang="de"
+
+function onKeyboardUp()
+{
+	# we need no initial keyboard delay, before starting the DuckyScript
+	# if this method gets called, we know the HID keyboard stack is usable
+
+	cat <<- EOF | duckhid
+		GUI r
+		DELAY 500
+		STRING notepad.exe
+		ENTER
+		DELAY 1000
+EOF
+	echo "Keyboard driver is loaded on target running" | outhid
+	echo "If output uses wrong keyboard layout, change the lang parameter in the payload script" | outhid
+	echo "The script is located at: $wdir/$PAYLOAD" | outhid
+	
+
+	while $true; do
+		(
+			echo
+			echo "Press CAPSLOCK, SCROLLLOCK or NUMLOCK frequently"
+			echo "to trigger the respecting keyboard output"
+			echo
+			echo "Payload execution stops, till trigger fires"
+			echo
+		) | outhid
+
+	
+		# Wait for keyboard trigger based on LED detection
+		# NUMLOCK, CAPSLOCK or SCROLLLOCK have to be pressed 6 times frequently (max 800ms between presses)
+		# in order to make the blocking 'key_trigger' command return
+		#
+		# key_trigger returns an exitcode representing the key (status LED) which has triggered 
+		key_trigger
+	
+		case "$?" in
+			1)  echo "Key trigger CAPSLOCK detected" | outhid
+			    echo "------------========---------" | outhid
+			    echo "iF YOUR OUTPUT IS CASE SWITCHED - YOU HAVE CAPSLOCK STILL ENABLED" | outhid
+			    echo "NUMLOCK IS THE PREFERRED TRIGGER" | outhid
+			    echo  | outhid;;
+			2)  echo "Key trigger NUMLOCK detected" | outhid
+			    echo "============================" | outhid;;
+			3)  echo "Key trigger SCROLLLOCK detected" | outhid
+			    echo "------------==========---------" | outhid;;
+	
+		esac
+	done
+}
+

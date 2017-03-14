@@ -1,8 +1,10 @@
 #!/usr/bin/python
 from datetime import datetime
 import sys
+import time
+from select import select
 
-DEBUG=False
+DEBUG=True
 
 class WatchHIDLed:
 	LED={"NUMLOCK": 1, "CAPSLOCK": 2, "SCROLLLOCK": 4}
@@ -88,10 +90,14 @@ class WatchHIDLed:
 			keyname = trigger[0]
 			hitcount = trigger[1]
 			exitcode = trigger[2]
+			final_state = trigger[3]
 			key_pos = KEYS[keyname]
 			if self.count_change[key_pos] >= hitcount:
 				# trigger has fired, so reset count
 				self.count_change[key_pos] = 0
+				if final_state == 0 or final_state == 1:
+					# press key, till target state is reached
+					 self.press_key_till_state(keyname, final_state)
 				if DEBUG:
 					print "Trigger fired " + keyname + " pressed more than " + str(hitcount) + " times in short sequence, exitting with exit code " + str(exitcode)
 				sys.exit(exitcode)
@@ -105,11 +111,15 @@ class WatchHIDLed:
 	#			This could be used to distinguish between triggers, if multiple
 	#			triggers are added (only the first hit is regarded, as the script exits
 	#			if the trigger fires).
-	def add_trigger(self, key, press_count, exit_code):
+	#	final_state	Assures the given LED state before exitting, by pressing the needed key
+	#				1 = On
+	#				0 = Off
+	#				other values = don't change state
+	def add_trigger(self, key, press_count, exit_code, final_state=-1):
 		KEYS = WatchHIDLed.KEYS
 
 		if key in KEYS:
-			trigger = [key, press_count, exit_code]
+			trigger = [key, press_count, exit_code, final_state]
 			self.triggers.append(trigger)
 		else:
 			print "Unknown key " + key
@@ -126,21 +136,90 @@ class WatchHIDLed:
 
 	def start_LED_monitoring(self):
 		with open("/dev/hidg0","rb") as f:
+			# check if there's already readable state data (not expected here, as we didn't changed LED state already)
+			while True:
+				r, w, e = select([f.fileno()], [], [], 0.050)
+				if len(r) > 0:
+					# readable data
+					d = f.read(1)
+					f.flush()
+					#print d.encode("hex")
+				else:
+					# no readable data
+					#print "No readable data"
+					break
+
 			while True:
 				data = f.read(1)
 				self.statechange(ord(data))
 
-	def send_receive_check(self, attempts = 5, testkey = "NUMLOCK"):
+	def press_key_till_state(self, target = "NUMLOCK", targetstate=0):
+		if DEBUG:
+			print "Setting " + target + " to " + str(targetstate)
+
+		LED = WatchHIDLed.LED
+		KEYS = {"NUMLOCK": 0x53, "CAPSLOCK": 0x39, "SCROLLLOCK": 0x47}
+		usbkey = chr(KEYS[target])
+		ledmask = LED[target]
+
+		if not target in KEYS:
+			return
+		if targetstate > 1 or targetstate < 0:
+			return
+
+		with open("/dev/hidg0","r+b") as f:
+			# check if there's already readable state data (not expected here, as we didn't changed LED state already)
+			while True:
+				r, w, e = select([f.fileno()], [], [], 0.050)
+				if len(r) > 0:
+					# readable data
+					d = f.read(1)
+					f.flush()
+					#print d.encode("hex")
+				else:
+					# no readable data
+					#print "No readable data"
+					break
+
+			while True:
+				# send_key
+				out = '\x00\x00' + usbkey + '\x00\x00\x00\x00\x00' + '\x00\x00\x00\x00\x00\x00\x00\x00'
+				f.write(out)
+				f.flush()
+				
+				# check LED
+				data = f.read(1)
+				data = ord(data)
+				keystate = (data & ledmask) / ledmask
+				if keystate == targetstate:
+					return
+					
+
+
+	def send_receive_check(self, attempts = 5, testkey = "NUMLOCK", final_state = -1):
 		#KEYS = {"NUMLOCK": 0x83, "CAPSLOCK": 0x82, "SCROLLLOCK": 0x84}
 		KEYS = {"NUMLOCK": 0x53, "CAPSLOCK": 0x39, "SCROLLLOCK": 0x47}
 		if not testkey in KEYS:
 			return
 
 		# return exitcode 0 after attempts time changing the LED state for the key given by 
-		# testkey
-		self.add_trigger(testkey, attempts, 0)
+		# testkey. Set key to off before exitting
+		self.add_trigger(testkey, attempts, 0, final_state)
 
 		with open("/dev/hidg0","r+b") as f:
+			# check if there's already readable state data (not expected here, as we didn't changed LED state already)
+			while True:
+				r, w, e = select([f.fileno()], [], [], 0.050)
+				if len(r) > 0:
+					# readable data
+					d = f.read(1)
+					f.flush()
+					#print d.encode("hex")
+				else:
+					# no readable data
+					#print "No readable data"
+					break
+
 			while True:
 				for i in range(attempts):
 					# send_key
@@ -155,7 +234,8 @@ class WatchHIDLed:
 	@staticmethod
 	def check_HID_availability():
 		t = WatchHIDLed()
-		t.send_receive_check()
+		# test with NUMLOCK, 5 LED changes needed to trigger, turn NUMLOCK off afterwards
+		t.send_receive_check(attempts = 5, testkey = "NUMLOCK", final_state = 0)
 		
 
 	@staticmethod

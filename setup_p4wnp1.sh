@@ -134,7 +134,7 @@ if [ ! -f /tmp/startup_runned ]; then
 fi
 source $wdir/setup.cfg
 source $wdir/payloads/\$PAYLOAD
-onLogin
+declare -f onLogin > /dev/null && onLogin
 EOF
 fi
 
