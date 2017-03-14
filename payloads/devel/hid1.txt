@@ -1,0 +1,88 @@
+# P4wnP1 demo payload by MaMe82
+# ==========================
+# starts Responder on RNDIS / CDC ECM interface
+# prints out stats in several payload stages via HID keyboard on target
+# prints out some stats to screen of P4wnP1
+# automatically brings Responder screen session to front on login
+# (the session could be detached by pressin <CTRL>+<A> , <D>)
+# Don't forget to change keyboard language to your locale
+
+
+# =============================
+# USB setup
+# =============================
+# Make sure to change USB_PID if you enable different USB functionality in order
+# to force Windows to enumerate the device again
+USB_VID="0x1d6b"        # Vendor ID
+USB_PID="0x0137"        # Product ID
+
+USE_ECM=false            # if true CDC ECM will be enabled
+USE_RNDIS=false          # if true RNDIS will be enabled
+USE_HID=true            # if true HID (keyboard) will be enabled
+USE_RAWHID=true         # if true HID (keyboard) will be enabled
+USE_UMS=false           # if true USB Mass Storage will be enabled
+
+# ==========================
+# Network and DHCP options
+# ==========================
+
+# We choose an IP with a very small subnet (see comments in README.rst)
+IF_IP="172.16.0.1" # IP used by P4wnP1
+IF_MASK="255.255.255.252" 
+IF_DHCP_RANGE="172.16.0.2,172.16.0.2" # DHCP Server IP Range
+
+ROUTE_SPOOF=false
+
+# =====================
+# Keyboard config
+# =====================
+lang="de" # Keyboard language for outhid and duckhid commands
+
+
+# This function gets called after the target network interface is working
+# (RNDIS, CDC ECM or both have to be enabled)
+function onNetworkUp()
+{
+	return
+}
+
+# this function gets called if the target received a DHCP lease
+# (DHCP client has to be running on target)
+function onTargetGotIP()
+{
+	return
+}
+
+function onBootFinished()
+{
+	
+	# test for duckyscript (start notepad)
+	# !!Note: the delays dramatically increase boot time and are only used for HID demo purposes
+	cat << EOF | duckhid
+DELAY 2000
+GUI r
+DELAY 500
+STRING notepad.exe
+ENTER
+DELAY 1000
+STRING 2 seconds delay before next output (delay test)
+ENTER
+DELAY 2000
+STRING Delay passed by
+ENTER
+EOF
+
+
+	# print "Boot finished" via HID keyboard (languag layoute selected in setup.cfg)
+	echo "P4wnP1 boot up finished" | outhid
+
+	python /root/hidsrv5.py
+
+}
+
+# commands in this function are ran on user login
+# the commans are ran by user "pi"
+function onLogin()
+{
+	return
+}

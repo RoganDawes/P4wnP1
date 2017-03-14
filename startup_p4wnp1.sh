@@ -97,7 +97,7 @@ if $USE_RNDIS; then
 mkdir -p functions/rndis.usb0
 # set up mac address of remote device
 echo "42:63:65:13:34:56" > functions/rndis.usb0/host_addr
-# set up local mac address 
+# set up local mac address
 echo "42:63:65:66:43:21" > functions/rndis.usb0/dev_addr
 fi
 
@@ -107,7 +107,7 @@ if $USE_ECM; then
 mkdir -p functions/ecm.usb1
 # set up mac address of remote device
 echo "42:63:65:12:34:56" > functions/ecm.usb1/host_addr
-# set up local mac address 
+# set up local mac address
 echo "42:63:65:65:43:21" > functions/ecm.usb1/dev_addr
 fi
 
@@ -119,6 +119,16 @@ echo 1 > functions/hid.g1/protocol
 echo 1 > functions/hid.g1/subclass
 echo 8 > functions/hid.g1/report_length
 cat $wdir/conf/report_desc > functions/hid.g1/report_desc
+fi
+
+# create RAW HID function
+# =======================================================
+if $USE_RAWHID; then
+mkdir -p functions/hid.g2
+echo 1 > functions/hid.g2/protocol
+echo 1 > functions/hid.g2/subclass
+echo 8 > functions/hid.g2/report_length
+cat $wdir/conf/raw_report_desc > functions/hid.g2/report_desc
 fi
 
 # Create USB Mass storage
@@ -175,6 +185,10 @@ if $USE_HID; then
 ln -s functions/hid.g1 configs/c.1/ # HID on config 1
 fi
 
+if $USE_RAWHID; then
+ln -s functions/hid.g2 configs/c.1/ # HID on config 1
+fi
+
 if $USE_ECM; then
 ln -s functions/ecm.usb1 configs/c.1/ # ECM on config  1
 fi
@@ -218,31 +232,56 @@ function start_DHCP_server()
 {
 
 	# recreate DHCP config
-cat << EOF > $wdir/dnsmasq.conf
-port=0
-listen-address=$IF_IP
-dhcp-range=$IF_DHCP_RANGE,$IF_MASK,5m
-dhcp-option=252,http://$IF_IP/wpad.dat
+	if $ROUTE_SPOOF; then
+		# DHCP config with static route spoofing
+		cat <<- EOF > $wdir/dnsmasq.conf
+			port=0
+			listen-address=$IF_IP
+			dhcp-range=$IF_DHCP_RANGE,$IF_MASK,5m
+			dhcp-option=252,http://$IF_IP/wpad.dat
 
-# router
-dhcp-option=3,$IF_IP
+			# router
+			dhcp-option=3,$IF_IP
 
-# DNS
-dhcp-option=6,$IF_IP
+			# DNS
+			dhcp-option=6,$IF_IP
 
-# NETBIOS NS
-dhcp-option=44,$IF_IP
-dhcp-option=45,$IF_IP
+			# NETBIOS NS
+			dhcp-option=44,$IF_IP
+			dhcp-option=45,$IF_IP
 
-# routes static (route 0.0.0.1 to 127.255.255.254 through our device)
-dhcp-option=121,0.0.0.0/1,$IF_IP,128.0.0.0/1,$IF_IP
-# routes static (route 128.0.0.1 to 255.255.255.254 through our device)
-dhcp-option=249,0.0.0.0/1,$IF_IP,128.0.0.0/1,$IF_IP
+			# routes static (route 0.0.0.1 to 127.255.255.254 through our device)
+			dhcp-option=121,0.0.0.0/1,$IF_IP,128.0.0.0/1,$IF_IP
+			# routes static (route 128.0.0.1 to 255.255.255.254 through our device)
+			dhcp-option=249,0.0.0.0/1,$IF_IP,128.0.0.0/1,$IF_IP
 
-dhcp-leasefile=/tmp/dnsmasq.leases
-dhcp-authoritative
-log-dhcp
-EOF
+			dhcp-leasefile=/tmp/dnsmasq.leases
+			dhcp-authoritative
+			log-dhcp
+		EOF
+	else
+		# DHCP config without static route spoofing
+		cat <<- EOF > $wdir/dnsmasq.conf
+			port=0
+			listen-address=$IF_IP
+			dhcp-range=$IF_DHCP_RANGE,$IF_MASK,5m
+			dhcp-option=252,http://$IF_IP/wpad.dat
+
+			# router
+			dhcp-option=3,$IF_IP
+
+			# DNS
+			dhcp-option=6,$IF_IP
+
+			# NETBIOS NS
+			dhcp-option=44,$IF_IP
+			dhcp-option=45,$IF_IP
+
+			dhcp-leasefile=/tmp/dnsmasq.leases
+			dhcp-authoritative
+			log-dhcp
+		EOF
+	fi;
 
 	# setup interface with correct IP
 	ifconfig $active_interface $IF_IP netmask $IF_MASK

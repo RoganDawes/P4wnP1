@@ -16,7 +16,7 @@ P4wnP1 Features
 -   includes **Responder** and a precompiled **John the Ripper Jumbo** Version
 -   Supports **DuckyScript** (see payload1.txt for example)
 -   Supports **raw ASCII Output via HID Keyboard** (see payload1.txt for an example printing out a logfile via Keyboard on target)
--   **Multi Keyboard language layout support** via Setup.cfg (no need to worry about target language when using HID commands)
+-   **Multi Keyboard language layout support** (no need to worry about target language when using HID commands, selected one time per config option)
 -   Automatic Link detection if both (RNDIS and ECM) network interfaces are enabled
 -   Payload callbacks when target activates network, when target receives DHCP lease, when device is booted
 -   If an USB OTG adapter is connected, P4wnP1 boots into interactive mode without running the payload, which allows easy configuration
