@@ -18,7 +18,12 @@ chunks = lambda A, chunksize=60: [A[i:i+chunksize] for i in range(0, len(A), chu
 # 3:	1 Byte 		rcv
 # 4-63	60 Bytes	Payload
 
+# client dst
+#  1	stdin
+#  2	stdout
+#  3	stderr
 
+# reassemable received and enqueue report fragments into full streams (separated by dst/src)
 def fragment_rcvd(qin, fragemnt_assembler, src=0, dst=0, data=""):
 	stream_id = (src, dst)
 	# if src == dst == 0, ignore (heartbeat)
@@ -93,19 +98,59 @@ def process_input(qin, subproc):
 				else:
 					print "running command '" + command + "'"
 					run_local_command(command, subproc)
-			# stderr
+			# stdout
 			elif dst == 2:
+				print "Data received on stdout"
+				print stream
 				pass
 			# stderr
 			elif dst == 3:
 				pass
-				# getfile
-				print "getfile received: " + stream
+			# getfile
+			elif dst == 4:
+				print "Data receiveced on dst=4 (getfile): " + stream
 				args=stream.split(" ",3)
 				if (len(args) < 3):
 					# too few arguments, echo this back with src=2, dst=3 (stderr)
 					print "To few arguments"
-					send_datastream(qout, 2, 3, "P4wnP1 received 'getfile' with too few arguments")
+					send_datastream(qout, 4, 3, "P4wnP1 received 'getfile' with too few arguments")
+				# ToDo: files are reassembled here, this code should be moved into a separate method
+				else:
+					# check if first word is "getfile" ignore otherwise
+					if not args[0].strip().lower() == "getfile":
+						send_datastream(qout, 4, 3, "P4wnP1 received data on dst=4 (getfile) but wrong request format was choosen")
+						return
+
+					filename = args[1].strip()
+					varname = args[2].strip()
+					content = None
+					# try to open file, send error if not possible
+					try:
+						with open(filename, "rb") as f:
+							content = f.read() # naive approach, reading whole file at once (we split into chunks anyway)
+					except IOError as e:
+						# deliver Error to Client errorstream
+						send_datastream(qout, 4, 3, "Error on getfile: " + e.strerror)
+						return
+					# send header
+					print "Varname " + str(varname)
+					send_datastream(qout, 4, 4, "BEGINFILE " + filename + " " + varname)
+
+					# send filecontent (sould be chunked into multiple streams, but would need reassembling on layer5)
+					# note: The client has to read (and recognize) ASCII based header and footer streams, but content could be in binary form
+					if content == None:
+						send_datastream(qout, 4, 3, "Error on getfile: No file content read")
+					else:
+						#send_datastream(qout, 4, 4, content)
+
+						streamchunksize=600
+						for chunk in chunks(content, streamchunksize):
+							send_datastream(qout, 4, 4, chunk)
+				
+	
+					# send footer
+					send_datastream(qout, 4, 4, "ENDFILE " + filename + " " + varname)
+
 			else:
 				print "Input in input queue:"
 				print input
@@ -194,6 +239,12 @@ def reset_bash(subproc):
 	else:
 		send_datastream(qout, 3, 3, "Restarting bash failed")
 
+
+# prepare a stream to answer a getfile request
+def stream_from_getfile(filename):
+	with open(filename,"rb") as f:
+		content = f.read()
+	return content
 	
 
 # main code

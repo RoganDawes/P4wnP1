@@ -138,6 +138,8 @@ function L4send_datastream($qout, $src, $dst, $data)
     $qout.Enqueue($chunk)
 }
 
+
+
 $script_mainloop = {
 
     # needs:
@@ -197,8 +199,34 @@ $script_hid_in_loop = {
     # dst=1   stdin (not used, we don't allow P4wnP1 server to give input at the moment)
     # dst=2   stdout
     # dst=3   stderr
-    # dst=4   stream assembler
+    # dst=4   getfile
     # dst=?   print unknown stream
+
+    $beginfile=[System.Text.Encoding]::ASCII.GetBytes("BEGINFILE")
+    $endfile=[System.Text.Encoding]::ASCII.GetBytes("ENDFILE")
+    $filercv_running = $false # this is only true while a file is received on dst=4 (from BEGINFILE till ENDFILE)
+    $filercv_name = ""
+    $filercv_varname = ""
+    $filercv_content = $null
+
+
+    # check if array 1 begins with content of array 2
+    # heavy load funtion as string conversion is involved
+    function helper_array_begins_with($arr1, $arr2)
+    {
+        $a=[System.BitConverter]::ToString($arr1)
+        $b=[System.BitConverter]::ToString($arr2)
+        return $a.Contains($b)    
+    }
+
+    function concat_array($arr1, $arr2)
+    {
+        $res = New-Object Byte[] ($arr1.Length + $arr2.Length)        
+        [System.Buffer]::BlockCopy($arr1, 0, $res, 0, $arr1.Length)
+        [System.Buffer]::BlockCopy($arr2, 0, $res, $arr1.Length, $arr2.Length)
+        return $res
+    }
+
     while ($true)
     {
         # $hostui.WriteLine("loop") # testoutput to check if thread isn't blocked
@@ -220,8 +248,57 @@ $script_hid_in_loop = {
             }
             elseif ($dst -eq 4)
             {
-                $msg = [System.Text.Encoding]::UTF8.GetString($stream)
-                $hostui.WriteLine("getfile response: $msg")
+                # incoming file consists of minimum 3 streams
+                #   1     - "BEGINFILE filename varname"
+                #   n     - file content binary (minimum 1 stream) or ERROR 
+                #   n+1   - "ENDFILE filename varname"
+
+                # check if start of file transfer
+                if (helper_array_begins_with $stream $beginfile)
+                {
+                    # convert stream to strings
+                    $args = ([System.Text.Encoding]::ASCII.GetString($stream)-replace('\s+',' ')).Split(" ")
+                    $filercv_name = $args[1]
+                    $filercv_varname = $args[2]
+                    $filercv_running =$true
+                    $filercv_content = $null # everytime a new filetransfer starts, content is resetted (easy way to deal with aborted transfers)
+                    $hostui.WriteLine("Begin receiving file $filercv_name")    
+                }
+                # check if end of file transfer
+                elseif (helper_array_begins_with $stream $endfile) 
+                {
+                    $hostui.WriteLine("")
+                    $hostui.WriteLine("End receiving $filercv_name")
+                    
+                    # save content of file into desired var via hashtable of parent
+                    $hashtable.Add($filercv_varname, $filercv_content)
+                    #New-Variable -Name $filercv_varname -Value $filercv_content -Visibility Public -Scope Script
+                            
+
+                    $filercv_running = $false
+                    $filercv_name = ""
+                    $filercv_varname = ""
+                }
+                elseif ($filercv_running)
+                {
+                    #$hostui.WriteLine("Receiving chunk for file $filercv_name")
+                    $hostui.Write(".")
+                    if ($filercv_content -eq $null)
+                    {
+                        # first chunk
+                        $filercv_content = $stream
+                    }
+                    else
+                    {
+                        # concat
+                        $filercv_content = concat_array $filercv_content $stream
+                    }
+                }
+                else
+                {
+                    $msg = [System.Text.Encoding]::UTF8.GetString($stream)
+                    $hostui.WriteLine("unknown getfile response: $msg")
+                }
             }
             else
             {
@@ -229,7 +306,8 @@ $script_hid_in_loop = {
                 $hostui.WriteLine($msg)
                 $hostui.WriteLine([System.Text.Encoding]::UTF8.GetString($stream))
             }
-        } 
+        }
+        else {Start-Sleep -m 50} # delay to safe CPU load if no output in queue
     }
 }
 
@@ -249,21 +327,24 @@ $script_hid_out_loop = {
         $host.UI.WriteLine("===========================")
         $host.UI.WriteLine("")
         $host.UI.WriteLine("Usage")
-        $host.UI.WriteLine("    '!!<command>'    run local powershell commands.")
-        $host.UI.WriteLine("                     Example: !!Get-Date")
+        $host.UI.WriteLine("    '!!<command>'        Run local powershell commands.")
+        $host.UI.WriteLine("                         Example: !!Get-Date")
         $host.UI.WriteLine("")
-        $host.UI.WriteLine("    '!<command>'     run remote bash commands on P4wnP1.")
-        $host.UI.WriteLine("                     Example: !pwd")
+        $host.UI.WriteLine("    '!<command>'         Run remote bash commands on P4wnP1.")
+        $host.UI.WriteLine("                         Example: !pwd")
         $host.UI.WriteLine("")
-        $host.UI.WriteLine("    '!reset_bash'    Restarts the bash on P4wnP1")
-        $host.UI.WriteLine("                       This is only needed if the underlying bash doesn't")
-        $host.UI.WriteLine("                       respond. This could for example happen if an inter-")
-        $host.UI.WriteLine("                       active command like 'base64' is issued")
-        $host.UI.WriteLine("                       The new bash process is started with a new and empty")
-        $host.UI.WriteLine("                       environment")
+        $host.UI.WriteLine("    '!reset_bash'        Restarts the bash on P4wnP1")
+        $host.UI.WriteLine("                           This is only needed if the underlying bash doesn't")
+        $host.UI.WriteLine("                           respond. This could for example happen if an inter-")
+        $host.UI.WriteLine("                           active command like 'base64' is issued")
+        $host.UI.WriteLine("                           The new bash process is started with a new and empty")
+        $host.UI.WriteLine("                           environment")
         $host.UI.WriteLine("")
-        $host.UI.WriteLine("    'help'           print this helpscreen")
-        $host.UI.WriteLine("    'exit'           exit the client")
+        $host.UI.WriteLine("    'getfile file var'  Load a content of a file from P4wnP1 to a local PowerShell variable")
+        $host.UI.WriteLine("")
+        $host.UI.WriteLine("    'help'              Print this helpscreen")
+        $host.UI.WriteLine("")
+        $host.UI.WriteLine("    'exit'              Exit the client")
         $host.UI.WriteLine("")
     }
     printhlp
@@ -272,8 +353,8 @@ $script_hid_out_loop = {
     
     while ($true)
     {
-        # !! read-host seems to block the UI and thus the HID_in thread, when i tries to print out data
-        # this could be circumvented by checking console input for "keyAvailable"
+        # !! read-host seems to block the UI and thus the HID_in thread (no write-host in other thread till read-host finished), 
+        # when it tries to print out data. This could be circumvented by checking console input for "keyAvailable"
         # the shortcoming is, that this couldn't be used on ISE
         if ([Console]::KeyAvailable) 
         { 
@@ -312,6 +393,22 @@ $script_hid_out_loop = {
             }
             #Write-Host -NoNewline "P4wnP1 HID Shell >> "
         }
+        else 
+        {
+            Start-Sleep -m 50 # delay to reduce CPU load if no key input
+            
+            # $hashtable keeps track of variables which should be created during runtime
+            # so we check if we have to create some
+            if ($hashtable.Count -gt 0)
+            {
+                foreach ($varname in $hashtable.Keys)
+                {
+                    New-Variable -Name $varname -Value $hashtable[$varname] -Force
+                    [Console]::WriteLine("Content of file saved to variable `$$varname")
+                }
+            }
+            $hashtable.Clear()
+        } 
     }
 }
 
@@ -326,6 +423,8 @@ $L4qout = New-Object System.Collections.Queue
 #######
 # Prepare Threads
 #######
+
+$hashtable =  [hashtable]::Synchronized(@{}) # hashtable to exchange synchronized data with this thread
 
 # create session state with needed functions for runspace
 
@@ -355,6 +454,7 @@ $rs_hid_in = [runspacefactory]::CreateRunspace($iss)
 $rs_hid_in.Open()
 $rs_hid_in.SessionStateProxy.SetVariable("L4qin", $L4qin)
 $rs_hid_in.SessionStateProxy.SetVariable("hostui", $Host.UI)
+$rs_hid_in.SessionStateProxy.SetVariable("hashtable", $hashtable)
 
 
 # create main loop PS thread
@@ -377,7 +477,7 @@ $handle_hid_in = $ps_hid_in.BeginInvoke()
 # Enque some outbound test data
 $msg="This text has been sent from PowerShellClient through a HID device and was printed on P4wnP1 with python"
 $testdata=[system.Text.Encoding]::UTF8.GetBytes($msg)
-L4send_datastream $L4qout 3 4 $testdata
+L4send_datastream $L4qout 3 2 $testdata
 
 # CTRL - c handling (to pipe through HID) see here: http://stackoverflow.com/questions/1710698/gracefully-stopping-in-powershell
 # for now we use try / catch / finally

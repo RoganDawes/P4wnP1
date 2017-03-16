@@ -28,7 +28,7 @@ lang="de"
 function onKeyboardUp()
 {
 	# start HID Server
-	screen -dmS hidsrv bash -c "cd $wdir/hidtools/; python hidsrv8.py"
+	screen -dmS hidsrv bash -c "cd $wdir/hidtools/; python hidsrv9.py"
 
 	while $true; do
 		# wait for keyboard LED trigger
