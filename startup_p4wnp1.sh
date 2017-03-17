@@ -127,9 +127,26 @@ if $USE_RAWHID; then
 mkdir -p functions/hid.g2
 echo 1 > functions/hid.g2/protocol
 echo 1 > functions/hid.g2/subclass
-echo 8 > functions/hid.g2/report_length
+echo 64 > functions/hid.g2/report_length
 cat $wdir/conf/raw_report_desc > functions/hid.g2/report_desc
 fi
+
+# create two RAW HID functions to achieve full duplex
+# =======================================================
+if $USE_RAWHID_FULLDUPLEX; then
+mkdir -p functions/hid.in
+echo 1 > functions/hid.in/protocol
+echo 1 > functions/hid.in/subclass
+echo 64 > functions/hid.in/report_length
+cat $wdir/conf/raw_hid_in_desc > functions/hid.in/report_desc
+
+mkdir -p functions/hid.out
+echo 1 > functions/hid.out/protocol
+echo 1 > functions/hid.out/subclass
+echo 64 > functions/hid.out/report_length
+cat $wdir/conf/raw_hid_out_desc > functions/hid.out/report_desc
+fi
+
 
 # Create USB Mass storage
 # ==============================
@@ -187,6 +204,11 @@ fi
 
 if $USE_RAWHID; then
 ln -s functions/hid.g2 configs/c.1/ # HID on config 1
+fi
+
+if $USE_RAWHID_FULLDUPLEX; then
+ln -s functions/hid.in configs/c.1/ # HID input device (to host) on config 1
+ln -s functions/hid.out configs/c.1/ # HID output device (from host) on config 1
 fi
 
 if $USE_ECM; then

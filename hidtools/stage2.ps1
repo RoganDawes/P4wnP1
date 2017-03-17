@@ -83,7 +83,11 @@ function L4fragment_rcvd($qin, $fragment_assembler, $src, $dst, $data)
             if ($data.Length -eq 0)
             {
                 # end of this stream
-                $stream = $src, $dst, $fragment_assembler[$stream_id][2]
+                $ms = $fragment_assembler[$stream_id][2]
+                $ms.Flush()
+                $stream = $src, $dst, $ms.ToArray()
+                $ms.Close()
+                $ms.Dispose()
                 # add stream to input queue
                 $qin.Enqueue($stream)
                 # remove stream from fragment_assembler
@@ -92,20 +96,17 @@ function L4fragment_rcvd($qin, $fragment_assembler, $src, $dst, $data)
             else
             {
                 # new data for existing stream, append
-                $old_data = $fragment_assembler[$stream_id][2]
-                $new_data = New-Object Byte[] ($data.Length + $old_data.Length)
-                # concating static arrays, could be done better
-                [System.Buffer]::BlockCopy($old_data, 0, $new_data, 0, $old_data.Length)
-                [System.Buffer]::BlockCopy($data, 0, $new_data, $old_data.Length, $data.Length)
-                $fragment_assembler[$stream_id][2] = $new_data
-                
-                # do we have to destroy old arrays ? We hope for the garbage collector to work properbly
+                $ms = $fragment_assembler[$stream_id][2]
+                $ms.WriteAsync($data, 0, $data.Length) 
+
             }
         }
         else
         {
             # new stream_id, we have to add a new stream to collect fragments
-            $fragment_assembler.Add($stream_id, ($src, $dst, $data))
+            $ms = New-Object System.IO.MemoryStream
+            $ms.WriteAsync($data, 0, $data.Length) # AsyncWrite is a nice idea, $data.Length could be less than 60 bytes
+            $fragment_assembler.Add($stream_id, ($src, $dst, $ms))
         }    
     }
     else
@@ -208,7 +209,7 @@ $script_hid_in_loop = {
     $filercv_name = ""
     $filercv_varname = ""
     $filercv_content = $null
-
+    $filercv_sw = [Diagnostics.Stopwatch]::New()
 
     # check if array 1 begins with content of array 2
     # heavy load funtion as string conversion is involved
@@ -219,13 +220,13 @@ $script_hid_in_loop = {
         return $a.Contains($b)    
     }
 
-    function concat_array($arr1, $arr2)
-    {
-        $res = New-Object Byte[] ($arr1.Length + $arr2.Length)        
-        [System.Buffer]::BlockCopy($arr1, 0, $res, 0, $arr1.Length)
-        [System.Buffer]::BlockCopy($arr2, 0, $res, $arr1.Length, $arr2.Length)
-        return $res
-    }
+#    function concat_array($arr1, $arr2)
+#    {
+#        $res = New-Object Byte[] ($arr1.Length + $arr2.Length)        
+#        [System.Buffer]::BlockCopy($arr1, 0, $res, 0, $arr1.Length)
+#        [System.Buffer]::BlockCopy($arr2, 0, $res, $arr1.Length, $arr2.Length)
+#        return $res
+#    }
 
     while ($true)
     {
@@ -261,38 +262,47 @@ $script_hid_in_loop = {
                     $filercv_name = $args[1]
                     $filercv_varname = $args[2]
                     $filercv_running =$true
-                    $filercv_content = $null # everytime a new filetransfer starts, content is resetted (easy way to deal with aborted transfers)
-                    $hostui.WriteLine("Begin receiving file $filercv_name")    
+                    if ($filercv_content -ne $null)
+                    {
+                        # aborted filestream pending, clear buffers
+                        $filercv_content.Close()
+                        $filercv_content.Dispose()
+                    }
+                    $filercv_content = New-Object System.IO.MemoryStream
+                    $hostui.WriteLine("Begin receiving file $filercv_name")
+                    $filercv_sw.Restart()
                 }
                 # check if end of file transfer
                 elseif (helper_array_begins_with $stream $endfile) 
                 {
-                    $hostui.WriteLine("")
-                    $hostui.WriteLine("End receiving $filercv_name")
+                    $filercv_sw.Stop()
+                    $timetaken = $filercv_sw.Elapsed.TotalSeconds
+
                     
                     # save content of file into desired var via hashtable of parent
-                    $hashtable.Add($filercv_varname, $filercv_content)
+                    $filercv_content.Flush()
+                    $content = $filercv_content.toArray()
+                    $size = $content.Length
+                    $kBps = $size / $timetaken / 1024
+                    $hostui.WriteLine("`nEnd receiving {0} received {1:N0} Byte in {2:N4} seconds ({3:N2} KB/s)" -f ($filercv_name, $size, $timetaken, $kBps))
+                    
+                    $hashtable.Add($filercv_varname, $content)
                     #New-Variable -Name $filercv_varname -Value $filercv_content -Visibility Public -Scope Script
                             
 
                     $filercv_running = $false
                     $filercv_name = ""
                     $filercv_varname = ""
+                    $filercv_content.Close()
+                    $filercv_content.Dispose()
+                    $filercv_content = $null
                 }
                 elseif ($filercv_running)
                 {
                     #$hostui.WriteLine("Receiving chunk for file $filercv_name")
                     $hostui.Write(".")
-                    if ($filercv_content -eq $null)
-                    {
-                        # first chunk
-                        $filercv_content = $stream
-                    }
-                    else
-                    {
-                        # concat
-                        $filercv_content = concat_array $filercv_content $stream
-                    }
+                    $filercv_content.WriteAsync($stream, 0, $stream.Length)
+
                 }
                 else
                 {
