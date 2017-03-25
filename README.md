@@ -41,10 +41,10 @@ What will be implemented:
 
 - Plug and Play install of HID device on Windows (already working on Windows 7 and Windows 10)
 - Covert channel based on raw HID (already working)
-- synchronous data transfer with 3,2KBytes/s oer HID (already working, fast enough for shells or low traffic TCP applications)
+- synchronous data transfer with 3,2KBytes/s over HID (already working, fast enough for shells or low traffic TCP applications)
 - Stack to handle HID communication and deal with HID data fragmentation (partially implemented)
 - in memory PowerShell Payload - nothing is written to disk (already working, needs to be minified)
-- Payload to talk from the host to a shell on P4wnP1 from PowerShell on pure HID (needs to be implemented)
+- Payload to talk from the host to a shell on P4wnP1 via PowerShell on pure HID (needs to be implemented)
 - Payload to bridge an Airgap target, by relaying a shell over raw HID and provide it from P4wnP1 via WiFi or Bluetooth (not implemented, needs Pi Zero W)
 
 
@@ -53,6 +53,12 @@ What would be possible, but won't be implemented at the moment:
 - Modular, RAT like payload enhancement (integration of PowerSploit etc.) for airgapped targets
 - Binding HID channel to a TCP socket, on both, target and P4wnP1 to use TCP based tools (metasploit, nmap etc.)
 - HID based file transfer from and to P4wnP1
+
+Some new features are already in ``devel`` branch
+- partially finished HID covert channel (with pure in memory PowerShell payload for target host)
+- finished **payload trigger via target's keyboard** CAPSLOCK / NUMLOCK / SCROLLLOCK (insider attacks, payload branching)
+- payload **callback when target installed keyboard driver** (no more delays to fire keyboard attacks)
+
 
 Feature Comparison with BashBunny
 ---------------------------------
