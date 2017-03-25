@@ -5,7 +5,7 @@ P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspber
 
 Suprise suprise - 20 GBit network
 -------------------
-While working on the covert HID channel (see Feature announcment), there are no frequent commits to the RePo, so I thought I should provide a little suprise from current development. [Here's the kernel module patch](https://github.com/mame82/ratepatch) which magically changes P4wnP1 into a **20 GBit per second** RNDIS device. How to use it, what is the benefit anw what are possible issues: [See here](https://github.com/mame82/ratepatch/blob/master/README.md)
+While working on the covert HID channel (see Feature announcement), there are no frequent commits to the RePo, so I thought I should provide a little suprise from current development. [Here's the kernel module patch](https://github.com/mame82/ratepatch) which magically changes P4wnP1 into a **20 GBit per second** RNDIS device. How to use it, what is the benefit anw what are possible issues: [See here](https://github.com/mame82/ratepatch/blob/master/README.md)
 
 The patch will be integrated into P4wnP1 on the next major release.
 
