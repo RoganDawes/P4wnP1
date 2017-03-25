@@ -3,6 +3,12 @@ P4wnP1 by MaMe82
 
 P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspberry Pi Zero or Raspberry Pi Zero W.
 
+Suprise suprise - 20 GBit network
+-------------------
+While working on the covert HID channel (see Feature announcment), there are no frequent commits to the RePo, so I thought I should provide a little suprise from current development. [Here's the kernel module patch](https://github.com/mame82/ratepatch) which magically changes P4wnP1 into a **20 GBit per second** RNDIS device. How to use it, what is the benefit anw what are possible issues: [See here](https://github.com/mame82/ratepatch/blob/master/README.md)
+
+The patch will be integrated into P4wnP1 on the next major release.
+
 P4wnP1 Features
 ---------------
 
@@ -62,7 +68,7 @@ Some days after initial P4wnP1 commit, Hak5's BashBunny was announced (and order
 | Switchable payloads                                                             	| Hardware switch                                                                                       	| manually in interactive mode (Hardware switch could be soldered, script support is a low priority ToDo)                                	|
 | Interactive Login with display out                                              	| SSH / serial                                                                                          	| SSH / serial / stand-alone (USB OTG + HDMI)                                                                                            	|
 | Performance                                                                     	| High performance ARM quad core CPU, SSD Flash                                                         	| Low performance single core ARM CPU, SDCARD                                                                                            	|
-| Network interface bitrate                                                       	| USB network interfaces shows with transfer rate of 2GBit/s (lower metric than default interfaces)     	| Kernel patch under development (already working, but needs to be kernel,version independent) to achieve 2 GBit/s, currently 100 MBit/s 	|
+| Network interface bitrate                                                       	| Windows RNDIS: **2 GBit/s**</br>Linux/MacOS ECM: **100 MBit/s**</br>Real bitrate 450 MBit max (USB 2.0)     	| Windows RNDIS: **20 GBit/s**</br>Linux/MacOS ECM: **4 GBit/s** (detected as 1 GBit/s interface on MacOS)</br>Real bitrate 450 MBit max (USB 2.0)</br>[Here's the needed P4wnP1 patch](https://github.com/mame82/ratepatch)	|
 | LED indicator                                                                   	| RGB Led, driven by single payload command                                                             	| mono color LED, payload command under development (low priority)                                                                       	|
 | Customization                                                                   	| Debian based OS with package manager                                                                  	| Debian based OS with package manager                                                                                                   	|
 | External network access via WLAN (relay attacks, MitM attacks, airgap bridging) 	| Not possible, no external interface                                                                   	| supported with Pi Zero W (payloads under development)                                                                                  	|
@@ -121,6 +127,7 @@ Disclosure Timeline discovered NTLM hash leak:
 | Feb-23-2017 	| Initial report submitted to vendor (Email)   	|
 | Feb-23-2017 	| Vendor reports back, investigating the issue 	|
 | Mar-01-2017 	| Vendor confirmed issue, working on fix       	|
+| Mar-23-2017 	| Vendor: monthly status Update "Being fixed in main codeline"      	|
 
 Of course you’re free to try this on your own. Hint: The product doesn’t fire requests to wpad.dat immediately, it could take several minutes.
 
