@@ -43,23 +43,3 @@ Run P4wnP1
 ----------------
 If nothing went wrong you could shutdown the Pi and reconnect it to a Windows Box.
 To see the output, you could either connect a HDMI device or login via SSH (use PuTTY on Windows) with `pi@172.16.0.1`.
-
-Your computer shouldn't be able to connect to the Internet as all traffic is altered by P4wnP1 (with no upstream Internet connection).
-
-If you want to see the effect try to access a SMB share on some random machine by entering `\\nonexistend\share` into a file browser and you should see your NTLM credentials received by P4wnP1.
-
-Try to access "http://i.dont.exist/index.html" or any domain via Internet Explorer or Edge... and again you should see your hashes captured.
-
-Go on testing SMTP, FTP, IMAP, POP3  and so on....
-
-Lock you're screen, detach and reattach P4wnP1... if your NTLM hash is captured again you should have a look into MS16-112
-
-
-Possible Errors
--------------------
-By default P4wnP1 polls for link to the host for only 1 minute. On some systems this time is insufficient to install the needed RNDIS driver (which should be done automatically). If you facing this issue, you can:
-
-1. Unplug and re-plug P4wnP1 two to three times, till the driver is installed
-2. Increase the value of "RETRY_COUNT_LINK_DETECTION" in the startup script, to give the target host more time for driver installation.
-
-Depending on the patches applied on a Windows target, driver installation only works if screen isn't locked.
