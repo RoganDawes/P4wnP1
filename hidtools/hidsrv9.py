@@ -119,7 +119,7 @@ def process_input(qin, subproc):
 					# check if first word is "getfile" ignore otherwise
 					if not args[0].strip().lower() == "getfile":
 						send_datastream(qout, 4, 3, "P4wnP1 received data on dst=4 (getfile) but wrong request format was choosen")
-						return
+						continue
 
 					filename = args[1].strip()
 					varname = args[2].strip()
@@ -131,7 +131,8 @@ def process_input(qin, subproc):
 					except IOError as e:
 						# deliver Error to Client errorstream
 						send_datastream(qout, 4, 3, "Error on getfile: " + e.strerror)
-						return
+						continue
+
 					# send header
 					print "Varname " + str(varname)
 					send_datastream(qout, 4, 4, "BEGINFILE " + filename + " " + varname)

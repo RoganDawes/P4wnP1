@@ -85,6 +85,10 @@ function L4fragment_rcvd($qin, $fragment_assembler, $src, $dst, $data)
                 # end of this stream
                 $ms = $fragment_assembler[$stream_id][2]
                 $ms.Flush()
+                
+                $whandle = $fragment_assembler[$stream_id][3] # restore IAsyncResult of last write to MemoryStream
+                $ms.EndWrite($whandle) # finish pending writes
+
                 $stream = $src, $dst, $ms.ToArray()
                 $ms.Close()
                 $ms.Dispose()
@@ -97,16 +101,24 @@ function L4fragment_rcvd($qin, $fragment_assembler, $src, $dst, $data)
             {
                 # new data for existing stream, append
                 $ms = $fragment_assembler[$stream_id][2]
-                $ms.WriteAsync($data, 0, $data.Length) 
-
+                #$ms.WriteAsync($data, 0, $data.Length) # WriteAsync is a nice idea, but not available on NET 3.5 (PS 2.0)
+#[Console]::WriteLine($ms.Position)
+                $whandle = $fragment_assembler[$stream_id][3] # restore IAsyncResult of last write to MemoryStream
+                $ms.EndWrite($whandle) # finish pending writes
+                $whandle = $ms.BeginWrite($data, 0, $data.Length, $null, $null) 
+                $fragment_assembler[$stream_id][3] = $whandle # store new whandle
+#[Console]::WriteLine($ms.Position)
             }
         }
         else
         {
             # new stream_id, we have to add a new stream to collect fragments
             $ms = New-Object System.IO.MemoryStream
-            $ms.WriteAsync($data, 0, $data.Length) # AsyncWrite is a nice idea, $data.Length could be less than 60 bytes
-            $fragment_assembler.Add($stream_id, ($src, $dst, $ms))
+            #$ms.WriteAsync($data, 0, $data.Length) # WriteAsync is a nice idea, but not available on NET 3.5 (PS 2.0)
+            $whandle = $ms.BeginWrite($data, 0, $data.Length, $null, $null) # AsyncWrite is a nice idea, but not available on NET 3.5 (PS 2.0)
+#[Console]::WriteLine($data.Length)
+#[Console]::WriteLine($ms.Position)
+            $fragment_assembler.Add($stream_id, ($src, $dst, $ms, $whandle))
         }    
     }
     else
@@ -208,8 +220,8 @@ $script_hid_in_loop = {
     $filercv_running = $false # this is only true while a file is received on dst=4 (from BEGINFILE till ENDFILE)
     $filercv_name = ""
     $filercv_varname = ""
-    $filercv_content = $null
-    $filercv_sw = [Diagnostics.Stopwatch]::New()
+    $filercv_content = ($null, $null)
+    $filercv_sw = New-Object Diagnostics.Stopwatch
 
     # check if array 1 begins with content of array 2
     # heavy load funtion as string conversion is involved
@@ -261,16 +273,24 @@ $script_hid_in_loop = {
                     $args = ([System.Text.Encoding]::ASCII.GetString($stream)-replace('\s+',' ')).Split(" ")
                     $filercv_name = $args[1]
                     $filercv_varname = $args[2]
-                    $filercv_running =$true
-                    if ($filercv_content -ne $null)
+                    $filercv_running = $true
+#[Console]::WriteLine("Begin receive")                    
+#[Console]::WriteLine($filercv_content[0].Position)                    
+                    if ($filercv_content[0] -ne $null)
                     {
                         # aborted filestream pending, clear buffers
-                        $filercv_content.Close()
-                        $filercv_content.Dispose()
+                        $filercv_content[0].Close()
+                        $filercv_content[0].Dispose()
+                        
+                        # overwite Asynctask object
+                        $filercv_content[1] = $null
                     }
-                    $filercv_content = New-Object System.IO.MemoryStream
+                    $filercv_content[0] = New-Object System.IO.MemoryStream # array containing the MemoryStream and placeholder for AsyncTask handle
+                    $filercv_content[1] = $null
                     $hostui.WriteLine("Begin receiving file $filercv_name")
-                    $filercv_sw.Restart()
+                    #$filercv_sw.Restart() # not on NET 3.5
+                    $filercv_sw.Reset()
+                    $filercv_sw.Start()
                 }
                 # check if end of file transfer
                 elseif (helper_array_begins_with $stream $endfile) 
@@ -278,10 +298,12 @@ $script_hid_in_loop = {
                     $filercv_sw.Stop()
                     $timetaken = $filercv_sw.Elapsed.TotalSeconds
 
+                    # finish pending writes
+                    $filercv_content[0].Flush()
+                    if ($filercv_content[1] -ne $null) { $filercv_content[0].EndWrite($filercv_content[1]) }
                     
                     # save content of file into desired var via hashtable of parent
-                    $filercv_content.Flush()
-                    $content = $filercv_content.toArray()
+                    $content = $filercv_content[0].toArray()
                     $size = $content.Length
                     $kBps = $size / $timetaken / 1024
                     $hostui.WriteLine("`nEnd receiving {0} received {1:N0} Byte in {2:N4} seconds ({3:N2} KB/s)" -f ($filercv_name, $size, $timetaken, $kBps))
@@ -293,16 +315,24 @@ $script_hid_in_loop = {
                     $filercv_running = $false
                     $filercv_name = ""
                     $filercv_varname = ""
-                    $filercv_content.Close()
-                    $filercv_content.Dispose()
-                    $filercv_content = $null
+                    $filercv_content[0].Close()
+                    $filercv_content[0].Dispose()
+                    $filercv_content[0] = $null
+                    $filercv_content[1] = $null
                 }
                 elseif ($filercv_running)
                 {
                     #$hostui.WriteLine("Receiving chunk for file $filercv_name")
                     $hostui.Write(".")
-                    $filercv_content.WriteAsync($stream, 0, $stream.Length)
-
+                    
+                    # finish pending writes
+                    if ($filercv_content[1] -ne $null) { $filercv_content[0].EndWrite($filercv_content[1]) }
+                    
+                    
+                    # $filercv_content.WriteAsync($stream, 0, $stream.Length) # WriteAsync isn't available on NET 3.5
+                    $whandle = $filercv_content[0].BeginWrite($stream, 0, $stream.Length, $null, $null)
+                    $filercv_content[1] = $whandle
+ #[Console]::WriteLine($filercv_content[0].Position)
                 }
                 else
                 {
@@ -405,8 +435,7 @@ $script_hid_out_loop = {
         }
         else 
         {
-            Start-Sleep -m 50 # delay to reduce CPU load if no key input
-            
+                       
             # $hashtable keeps track of variables which should be created during runtime
             # so we check if we have to create some
             if ($hashtable.Count -gt 0)
@@ -416,8 +445,13 @@ $script_hid_out_loop = {
                     New-Variable -Name $varname -Value $hashtable[$varname] -Force
                     [Console]::WriteLine("Content of file saved to variable `$$varname")
                 }
+                $hashtable.Clear()
             }
-            $hashtable.Clear()
+            else
+            {
+                Start-Sleep -m 50 # delay to reduce CPU load if no key input
+            }
+            
         } 
     }
 }
