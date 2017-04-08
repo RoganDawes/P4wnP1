@@ -36,6 +36,10 @@ But code has to be executed on the target, to handle the non standard communicat
 As this is going to be a major P4wnP1 feature, I'm not working on anything else at the moment - so please excuse if commits are less frequently, right now. The focus of this attack vector isn't drive-by, but gaining persistent backdoor access. 
 This should be done with a low detection profile (no serial, no Ethernet over USB, no USB Mass Storage)
 
+Video demo of first HID payload (comments in subtitles)
+
+[![P4wnP1 HID demo youtube](https://img.youtube.com/vi/MI8DFlKLHBk/0.jpg)](https://www.youtube.com/watch?v=MI8DFlKLHBk&yt:cc=on)
+
 What will be implemented:
 
 - Plug and Play install of HID device on Windows (already working on Windows 7 and Windows 10)
