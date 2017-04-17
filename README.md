@@ -5,6 +5,11 @@ P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspber
 
 The branch is dedicated to HID covert channel feature development
 
+Hint
+----
+If you want to try devel branch, be sure to setup payload language of HID payloads to your needs (wrong keyboard language renders most payloads useless).
+Features which aren't already merged into receive no support (please don't open issues).
+
 Video demo of first HID payload (comments in subtitles)
 -------------------------------------------------------
 
