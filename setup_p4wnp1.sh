@@ -67,7 +67,7 @@ sudo bash -c "echo nameserver 8.8.8.8 > /etc/resolv.conf"
 # install pycrypto
 echo "Installing needed python additions..."
 sudo pip install pycrypto
-
+sudo pip install pydispatcher
 
 # Installing Responder isn't needed anymore as it is packed into the Repo as submodule
 #echo "Installing Responder (patched MaMe82 branch with Internet connection emulation and wpad additions)..."
