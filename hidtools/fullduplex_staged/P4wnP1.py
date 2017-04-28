@@ -31,13 +31,6 @@ class Channel():
 	def get_header(self):
 		return self.__channel_header
 
-	def data_to_stream(self, data):
-		"""
-		Creates a stream ready to be written to HID TransportLayer fitting this channel
-		"""
-
-		return self.__channel_header + data
-
 	def data_available(self):
 		return self.bq.data_available()
 
@@ -92,26 +85,12 @@ class RemoteProcess():
 		# destroy underlying channels and blockingqueues
 		pass
 		
-	def get_channel_names(self):
-		return self._namedict.keys()
-
-	def get_in_channel_names(self):
-		return self._ins.keys()
-
-	def get_out_channel_names(self):
-		return self._outs.keys()
-
-	def get_channels(self):
-		return self._namedict.values()
 
 	def get_in_channels(self):
 		return self._ins.values()
 
 	def get_out_channels(self):
 		return self._outs.values()
-
-	def get_channel_by_name(self, name):
-		return self._namedict[name]
 
 	def get_channel_by_header(self, type, subtype):
 		header = chr((type << 4) + subtype) + chr(self.id)
@@ -176,16 +155,6 @@ class RemoteProcess():
 		self.__cond_input.release()
 
 		
-
-	def encode_to_stream(self, channel_name, data):
-		"""
-		Creates a stream ready to be written to HID TransportLayer
-		"""
-		pass
-
-
-	def decode_from_stream(self, stream):
-		pass
 
 class P4wnP1(cmd.Cmd):
 	"""
