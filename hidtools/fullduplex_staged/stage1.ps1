@@ -345,8 +345,4 @@ $HIDout = $devfile
 
 $stage2 = RequestStage2 $HIDin $HIDout 1 # synchronize connection
 
-"$stage2"
-
-$stage2 = Get-Content fullduplex_stage2.ps1 | Out-String # we load stage 2 from disk
-
-#iex $stage2
+iex $stage2

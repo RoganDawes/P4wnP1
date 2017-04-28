@@ -9,7 +9,7 @@ class TransportLayer():
 	Interfaces with LinkLayer via pydispatcher
 	"""
 
-	DEBUG=True
+	DEBUG=False
 
         SIGNAL_LINKLAYER_STARTED = "LinkLayerStarted"
         SIGNAL_LINKLAYER_SYNCING = "LinkLayerSyncing"
@@ -57,7 +57,10 @@ class TransportLayer():
 			self.stream_in_queue.put(data)
 		elif signal == TransportLayer.SIGNAL_LINKLAYER_CONNECTION_RESET:
 			TransportLayer.print_debug("Received connection reset")
-		
+		elif signal == TransportLayer.SIGNAL_LINKLAYER_SYNCING:
+			print "TransportLayer: Waiting for client connection via HID..."		
+		elif signal == TransportLayer.SIGNAL_LINKLAYER_SYNCED:
+			print "TransportLayer: Client connected via HID!"		
 		else:
 			TransportLayer.print_debug("TransportLayer: Unhandled singnal from LinkLayer processed by thread: " + current_thread().getName())
 			TransportLayer.print_debug("TransportLayer: signal: " + signal + ", data: " + repr(data[:100]))

