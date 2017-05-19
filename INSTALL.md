@@ -34,7 +34,7 @@ Enter the following commands to install P4wnP1:
     cd /home/pi
     git clone --recursive https://github.com/mame82/P4wnP1
     cd P4wnP1
-    ./setup_p4wnp1.sh
+    ./install.sh
 
 The setup process will take some time (installing packages, compiling pycrypto), so go and have a coffee.
 If something goes wrong you should receive some error message.

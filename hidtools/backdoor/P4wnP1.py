@@ -2,6 +2,7 @@
 import cmd
 import sys
 import Queue
+import struct
 from pydispatch import dispatcher
 from LinkLayer  import LinkLayer
 from TransportLayer import TransportLayer
@@ -50,8 +51,17 @@ class Channel():
 		
 
 class RemoteProcess():
-	def __init__(self, id, name = ""):
+
+	STATE_STARTING = 1
+	STATE_RUNNING = 2
+	STATE_TERMINATING = 3
+	STATE_EXITED = 4
+
+	def __init__(self, id, name = "", cmdline = ""):
 		self.id = id # unique ID (mustn't necessarily be the real proccess ID, but good idea)
+		self.name = name
+		self.interacting = False
+		self.cmdline = cmdline
 
 		# note: a RemoteProcess is meant to be ran on remote client
 		#       thus from P4wnP1 server perspective its stdout is input,
@@ -60,8 +70,8 @@ class RemoteProcess():
 			Channel(name = "STDIN", direction = 1, type = 3, subtype = 1, id = self.id),
 			Channel(name = "STDOUT", direction = 0, type = 3, subtype = 2, id = self.id),
 			Channel(name = "STDERR", direction = 0, type = 3, subtype = 3, id = self.id),
-			Channel(name = "CTRL_TO_PROC", direction = 0, type = 3, subtype = 4, id = self.id),
-			Channel(name = "CTRL_FROM_PROC", direction = 1, type = 3, subtype = 5, id = self.id))
+			Channel(name = "CTRL_TO_PROC", direction = 1, type = 3, subtype = 4, id = self.id),
+			Channel(name = "CTRL_FROM_PROC", direction = 0, type = 3, subtype = 5, id = self.id))
 
 		# fill dicts
 		self._namedict = {}
@@ -154,7 +164,82 @@ class RemoteProcess():
 
 		self.__cond_input.release()
 
+	def interact(self):
+		"""
+		If this method is called the underlying process is switched to interactive, this means:
+			- Input to stdin is readen in a continuous loop (till process exits, is ended or put to background)
+			- Received process output is (stderr/stdout) written to stdout
+		"""
+		print "Interacting with RemoteProcess {0} ID: {1}".format(self.name, self.id)
+
+		self.interacting = True
+		thread_output = Thread(target = self.__interact_output_loop, name = "Interact output loop proc {0} id {1}".format(self.name, self.id), args = ( ))
+
+		thread_output.start()
+		self.__interact_input_loop()
+
+
+	def __interact_input_loop(self):
+		while self.interacting:
+			cmd = sys.stdin.readline()
+
+			if cmd == "endinteract\n":
+				self.interacting = False
+				break
+
+			self.write_to("STDIN", cmd)
+
+	def __interact_output_loop(self):
+		while self.interacting:
+			ch_stderr = self._namedict["STDERR"]
+			ch_stdout = self._namedict["STDOUT"]
+
+			while ch_stderr.data_available():
+				data = ch_stderr.read()
+				sys.stderr.write(data)
+
+			while ch_stdout.data_available():
+				data = ch_stdout.read()
+				sys.stdout.write(data)
+
+
+class RemoteProcManager():
+	DEBUG = True
+
+	TYPE_REQUEST_PROC_START = 1 # arg0 = internal Proc ID, arg1 = cmdline
+	TYPE_REQUEST_PROC_KILL = 2 # arg0 = internal Proc ID
+	# if needed something like sleep could be added here
+
+
+	TYPE_RESPONSE_PROC_START_SUCCESS = 1 # arg0 = internal Proc ID
+	TYPE_RESPONSE_PROC_START_FAIL = 2 # arg0 = internal Proc ID
+	TYPE_RESPONSE_PROC_KILL_SUCESS = 3 # arg0 = internal Proc ID
+	TYPE_RESPONSE_PROC_KILL_FAIL = 4 # arg0 = internal Proc ID
+	TYPE_RESPONSE_PROC_NOTIFY_EXIT = 5 # arg0 = internal Proc ID, arg1 = ExitCode
+	
+
+	def __init__(self):
+		RemoteProcManager.print_debug("init...")
+		self.next_id = 0
+
+	@staticmethod
+	def print_debug(str):
+		if RemoteProcManager.DEBUG:
+			print "RemoteProcManager (DEBUG): {}".format(str)
 		
+	def startProc(self, cmdline, name = ""):
+		RemoteProcManager.print_debug("startProc for cmdline '{0}'".format(cmdline))
+		
+		#generate next internal proc ID (approach isn't thread safe ... ultiple asynchronous calls possible ??)
+		internalProcID = self.next_id
+		self.next_id += 1
+
+		# create RemoteProcessObject
+		RP = RemoteProcess(internalProcID, name = name, cmdline = cmdline)
+		msg = struct.pack("B{0}s".format(len(cmdline)), RP.id, cmdline)
+		RP.write_to("CTRL_TO_PROC", msg)
+
+                RemoteProcManager.print_debug("sent '{0}'".format(repr(msg)))
 
 class P4wnP1(cmd.Cmd):
 	"""
@@ -217,6 +302,8 @@ class P4wnP1(cmd.Cmd):
 
 		self.tl = transportlayer
 		self.ll = linklayer
+
+		self.rpm =RemoteProcManager()
 
 		cmd.Cmd.__init__(self)
 		self.prompt = "P4wnP1 HID shell > "
@@ -365,7 +452,7 @@ class P4wnP1(cmd.Cmd):
 			as data won't be returned without interaction from the remote host itself.
 		"""
 		if len(line) > 0:
-			# send line to PowerShell input stream (header is added by outstream
+			# send line to PowerShell input stream (header is added by outstream)
 			self.RPC_ps.write_to("STDIN", line)
 
 			# wait till some response is received
@@ -384,6 +471,16 @@ class P4wnP1(cmd.Cmd):
 					print "Data from unexpected channel {0}: {1}".format(ch.name, ch.read())
 	
 
+	def do_interact(self, line):
+		"""
+		Interacts with a process
+		"""
+		# - should take internal ProcID as arg to select the right proc
+		# - has to validate that the process is running and added to proc list
+		
+		# for testing pruposes RPC_ps is used (until proc management is implemented)
+		self.RPC_ps.interact()
+
 	def do_systeminfo(self, line):
 		print "Waiting for target to deliver systeminfo..."
 		self.send(P4wnP1.CHANNEL_TYPE_CONTROL, P4wnP1.CHANNEL_SUBTYPE_CONTROL_SERVER_SYSINFO_REQUEST)
@@ -391,6 +488,9 @@ class P4wnP1(cmd.Cmd):
 		# wait for response from input handler, by using a dedicated Channel (get blocks till data received)
 		print self.control_sysinfo_response.get()
 
+
+	def do_test(self, line):
+		self.rpm.startProc(line)
 
 if __name__ == "__main__":
 	try:

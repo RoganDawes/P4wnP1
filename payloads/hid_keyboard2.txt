@@ -20,7 +20,7 @@ USE_HID=true            # if true HID (keyboard) will be enabled
 # use LED based HID keyboard test, to fire callback to onKeyboardUp()
 HID_KEYBOARD_TEST=true
 
-# overwrite defaul keyboard language
+# overwrite default keyboard language
 lang="de"
 
 function onKeyboardUp()
@@ -28,6 +28,7 @@ function onKeyboardUp()
 	# we need no initial keyboard delay, before starting the DuckyScript
 	# if this method gets called, we know the HID keyboard stack is usable
 
+	# directly pipe duckyscript to "duckhid"
 	cat <<- EOF | duckhid
 		GUI r
 		DELAY 500
@@ -35,18 +36,21 @@ function onKeyboardUp()
 		ENTER
 		DELAY 1000
 EOF
-	echo "Keyboard driver is loaded on target running" | outhid
+
+	# single command outputs piped to outhid
+	echo "Target host finished loading HID driver" | outhid
+	echo "Thi demo payload is located at: $wdir/$PAYLOAD" | outhid
 	echo "If output uses wrong keyboard layout, change the lang parameter in the payload script" | outhid
-	echo "The script is located at: $wdir/$PAYLOAD" | outhid
 	
 
 	while $true; do
+		# multiple command outputs pipe to single "outhid" call
 		(
 			echo
 			echo "Press CAPSLOCK, SCROLLLOCK or NUMLOCK frequently"
-			echo "to trigger the respecting keyboard output"
+			echo "to trigger the respective keyboard output"
 			echo
-			echo "Payload execution stops, till trigger fires"
+			echo "Payload execution sleeps till a trigger key is pressed"
 			echo
 		) | outhid
 
@@ -65,7 +69,7 @@ EOF
 			    echo "NUMLOCK IS THE PREFERRED TRIGGER" | outhid
 			    echo  | outhid;;
 			2)  echo "Key trigger NUMLOCK detected" | outhid
-			    echo "============================" | outhid;;
+			    echo "------------=======---------" | outhid;;
 			3)  echo "Key trigger SCROLLLOCK detected" | outhid
 			    echo "------------==========---------" | outhid;;
 	
