@@ -41,6 +41,7 @@ function init_usb()
 	mkdir -p strings/0x409 # English language strings
 	# set serial
 	echo "deadbeefdeadbeef" > strings/0x409/serialnumber
+#	echo "deadbeefdeadbe11" > strings/0x409/serialnumber
 	# set manufacturer
 	echo "MaMe82" > strings/0x409/manufacturer
 	# set product

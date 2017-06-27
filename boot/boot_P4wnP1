@@ -65,25 +65,18 @@ if $USB_RNDIS || $USB_ECM; then
 	USB_ETHERNET=true 
 fi
 
+# change hostname to make P4wnP1 resolveable on "name.local"
+if $WIFI || $USB_ETHERNET; then
+	hostname="MAME82-P4WNP1"
 
+	hostname $hostname
+	echo $hostname > /etc/hostname
 
-        # if active_interface not "none" (RNDIS or CDC ECM are running)
-#       if [ "$active_interface" != "none" ]; then
-#               # setup DHCP server
-#               start_DHCP_server
-#
-#               # call onNetworkUp() from payload
-#               declare -f onNetworkUp > /dev/null && onNetworkUp
-#
-#               # wait for client to receive DHCP lease
-#               target_ip=""
-#               while [ "$target_ip" == "" ]; do
-#                       target_ip=$(cat /tmp/dnsmasq.leases | cut -d" " -f3)
-#               done
-#
-#               # call onNetworkUp() from payload
-#               declare -f onTargetGotIP > /dev/null && onTargetGotIP
-#       fi
+	# add to /etc/hosts
+	if ! grep -q -E "^127\.0\.0\.1 $hostname\$" /etc/hosts; then
+	        echo "127.0.0.1 $hostname" >> /etc/hosts
+	fi
+fi
 
 
 
@@ -105,10 +98,11 @@ if $USB_ETHERNET; then
 			target_ip=""
 			while [ "$target_ip" == "" ]; do
 				target_ip=$(cat /tmp/dnsmasq.leases | cut -d" " -f3)
+				target_name=$(cat /tmp/dnsmasq.leases | awk '{print $4}')
 				sleep 0.2
 			done
 
-			# callback onNetworkGotIÜ() of payload script 
+			# callback onNetworkGotIP() of payload script 
 			declare -f onTargetGotIP > /dev/null && onTargetGotIP
 
 		fi

@@ -9,19 +9,25 @@ class TransportLayer():
 	Interfaces with LinkLayer via pydispatcher
 	"""
 
-	DEBUG=False
+	DEBUG=True
 
         SIGNAL_LINKLAYER_STARTED = "LinkLayerStarted"
         SIGNAL_LINKLAYER_SYNCING = "LinkLayerSyncing"
         SIGNAL_LINKLAYER_SYNCED = "LinkLayerSynced"
         SIGNAL_LINKLAYER_CONNECTION_RESET = "LinkLayerConnectionReset"
         SIGNAL_LINKLAYER_CONNECTION_ESTABLISHED = "LinkLayerConnectionEstablished"
+        SIGNAL_LINKLAYER_CONNECTION_LOST = "LinkLayerConnectionLost"
         SIGNAL_LINKLAYER_STOPPING = "LinkLayerStopping"
         SIGNAL_LINKLAYER_STOPPED = "LinkLayerStopped"
         SIGNAL_LINKLAYER_STREAM_ENQUEUED = "LinkLayerStreamEnqueued"
 
-        TRANSPORTLAYER_SENDER_NAME = "TransportLayer"
+        TRANSPORTLAYER_SENDER_NAME_DOWN = "TransportLayer"
+        TRANSPORTLAYER_SENDER_NAME_UP = "TransportLayerUp"
         SIGNAL_TRANSPORTLAYER_SEND_STREAM = "TransportLayerSendStream"
+        SIGNAL_TRANSPORTLAYER_CLIENT_CONNECTED_LINKLAYER = "TransportLayerClientConnectedLinkLayer"
+	SIGNAL_TRANSPORTLAYER_WAITING_FOR_CLIENT_LINKLAYER = "TransportLayerWaitingForClient"
+	SIGNAL_TRANSPORTLAYER_CONNECTION_RESET_LINKLAYER = "TransportLayerConnectionResetLinkLayer"
+	SIGNAL_TRANSPORTLAYER_CONNECTION_TIMEOUT_LINKLAYER = "TransportLayerConnectionTimeoutLinkLayer"
 
 	def __init__(self):
 		# create queue for incoming streams to decouple processing from link layer reader thread
@@ -35,7 +41,7 @@ class TransportLayer():
 
 	def __write_raw_stream(self, stream):
 		# should keep track of LinkLayer's output queue size (needs additional dispatcher messages)
-		dispatcher.send(data = stream, signal = TransportLayer.SIGNAL_TRANSPORTLAYER_SEND_STREAM, sender = TransportLayer.TRANSPORTLAYER_SENDER_NAME)
+		dispatcher.send(data = stream, signal = TransportLayer.SIGNAL_TRANSPORTLAYER_SEND_STREAM, sender = TransportLayer.TRANSPORTLAYER_SENDER_NAME_DOWN)
 
 	def data_available(self):
 		return self.stream_in_queue.qsize()
@@ -57,10 +63,16 @@ class TransportLayer():
 			self.stream_in_queue.put(data)
 		elif signal == TransportLayer.SIGNAL_LINKLAYER_CONNECTION_RESET:
 			TransportLayer.print_debug("Received connection reset")
+			dispatcher.send(data = "Connection reset from from client received via LinkLayer", signal = TransportLayer.SIGNAL_TRANSPORTLAYER_CONNECTION_RESET_LINKLAYER, sender = TransportLayer.TRANSPORTLAYER_SENDER_NAME_UP)
 		elif signal == TransportLayer.SIGNAL_LINKLAYER_SYNCING:
-			print "TransportLayer: Waiting for client connection via HID..."		
+			#print "TransportLayer: Waiting for client connection via HID..."		
+			dispatcher.send(data = "Waiting for Client conection to LinkLayer via HID", signal = TransportLayer.SIGNAL_TRANSPORTLAYER_WAITING_FOR_CLIENT_LINKLAYER, sender = TransportLayer.TRANSPORTLAYER_SENDER_NAME_UP)
 		elif signal == TransportLayer.SIGNAL_LINKLAYER_SYNCED:
-			print "TransportLayer: Client connected via HID!"		
+			# fire event		
+			dispatcher.send(data = "Client connected via HID to LinkLayer", signal = TransportLayer.SIGNAL_TRANSPORTLAYER_CLIENT_CONNECTED_LINKLAYER, sender = TransportLayer.TRANSPORTLAYER_SENDER_NAME_UP)
+		elif signal == TransportLayer.SIGNAL_LINKLAYER_CONNECTION_LOST:
+			# no client data received for 100 ms, send connection timeout to upper layer
+			dispatcher.send(data = "Connection reset from from client received via LinkLayer", signal = TransportLayer.SIGNAL_TRANSPORTLAYER_CONNECTION_TIMEOUT_LINKLAYER, sender = TransportLayer.TRANSPORTLAYER_SENDER_NAME_UP)
 		else:
 			TransportLayer.print_debug("TransportLayer: Unhandled singnal from LinkLayer processed by thread: " + current_thread().getName())
 			TransportLayer.print_debug("TransportLayer: signal: " + signal + ", data: " + repr(data[:100]))

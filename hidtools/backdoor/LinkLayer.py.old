@@ -20,7 +20,6 @@ class LinkLayer:
 	SIGNAL_LINKLAYER_SYNCED = "LinkLayerSynced"
 	SIGNAL_LINKLAYER_CONNECTION_RESET = "LinkLayerConnectionReset"
 	SIGNAL_LINKLAYER_CONNECTION_ESTABLISHED = "LinkLayerConnectionEstablished"
-	SIGNAL_LINKLAYER_CONNECTION_LOST = "LinkLayerConnectionLost"
 	SIGNAL_LINKLAYER_STOPPING = "LinkLayerStopping"
 	SIGNAL_LINKLAYER_STOPPED = "LinkLayerStopped"
 	SIGNAL_LINKLAYER_STREAM_RECEIVED = "LinkLayerStreamEnqueued"
@@ -56,10 +55,7 @@ class LinkLayer:
 			self.state["qout"].put(data)
 		else:
 			print "LinkLayer: Unhandled signal from transport layer, processed by thread: " + current_thread().getName()
-			if data:
-				print "LinkLayer: signal: " + signal + ", data:" + data
-			else:
-				print "LinkLayer: signal: " + signal + ", no data"
+			print "LinkLayer: signal: " + signal + ", data:" + data
 
 
 	def stop(self):
@@ -74,11 +70,6 @@ class LinkLayer:
 			self.state["write_thread"].join()
 
 		dispatcher.send(data = "LinkLayer stopped", signal = LinkLayer.SIGNAL_LINKLAYER_STOPPED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
-
-	def start_background(self):
-		# create a new thread waiting for link layer connections (calling start would block till a client connects)
-		conthread = Thread(target = self.start, name = "LinkLayer connection thread", args = ())
-		conthread.start()
 		
 
 	def start(self):
@@ -104,7 +95,7 @@ class LinkLayer:
 	def write_rep(self):
 		#print "Starting write thread"
 
-		DEBUG = False
+		DEBUG=False
 	
 		PAYLOAD_MAX_SIZE=self.state["PAYLOAD_MAX_SIZE"]
 		MAX_SEQ = self.state["MAX_OUT_QUEUE"] # length of output buffer (32)
@@ -301,8 +292,6 @@ class LinkLayer:
 
 
 	def read_rep(self):
-		DEBUG = False
-
 		#print "Starting read thread"
 
 		MAX_OUT_QUEUE = self.state["MAX_OUT_QUEUE"]
@@ -328,14 +317,9 @@ class LinkLayer:
 			res = select([self.fin.fileno()], [], [], 0.1) # 1 ms timeout
 			if len(res[0]) == 0:
 				# no data to read, restart loop (and check stop condition)
-				#	if we are here, there was no data received for 100 ms, this could be interpreted as disconnect of peer on LinkLayer
-				#	We leave the decission of interpreting this as "client disconnect" to another Layer by dispatching an event
-				dispatcher.send(data = "LinkLayer no client data for 100ms", signal = LinkLayer.SIGNAL_LINKLAYER_CONNECTION_LOST, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 				continue
 
 			inbytes = self.fin.read(64)
-
-			#print "IN: " + repr(inbytes)
 
 
 			report = struct.unpack('!BB62s', inbytes)
@@ -346,8 +330,7 @@ class LinkLayer:
 			LENGTH = report[0] & 63
 			ACK = report[1] & 63
 
-			if DEBUG:
-				print "Reader: Report received: Length " + str(LENGTH) + " FIN bit " + str(BYTE1_BIT7_FIN/128)
+			# print "Reader: Report received: Length " + str(LENGTH) + " FIN bit " + str(BYTE1_BIT7_FIN/128)
 
 			# handle (re) connect bit
 			if (BYTE2_BIT7_CONNECT):
@@ -436,8 +419,6 @@ class LinkLayer:
 	def __sync_link(self):
 		MAX_OUT_QUEUE = self.state["MAX_OUT_QUEUE"]
 
-		stop = self.state["EVENT_STOP_READ"] # react on stop read event (kill thread)
-
 		# emit message via dispatcher
 		dispatcher.send(data = "LinkLayer trying to sync", signal = LinkLayer.SIGNAL_LINKLAYER_SYNCING, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 			
@@ -445,12 +426,7 @@ class LinkLayer:
 		SEQ = 10 # start sequence number for syncing to ACK (random start SEQ between 0 and MAX_OUT_QUEUE)
 		payload_byte1 = 0
 #		print "Trying to sync link layer..."
-		while not stop.isSet():
-			res = select([self.fin.fileno()], [], [], 0.1) # 1 ms timeout
-			if len(res[0]) == 0:
-				# no data to read, restart loop (and check stop condition)
-				continue
-
+		while True:
 			inbytes = self.fin.read(64) # if this is the first read, the client shouldn't have a valid ack
 			report = struct.unpack('!BB62s', inbytes)
 
@@ -479,17 +455,15 @@ class LinkLayer:
 			self.fout.flush()
 
 
-		if not stop.isSet():
-			# if we are here, we are in sync, next valid sequence number is in SEQ
-#			print "Sync done, last valid SEQ " + str(SEQ) + " + last valid ACK " + str(ACK)
-			self.state["last_valid_ack_rcvd"]=ACK # set correct ACK into state
-			self.state["last_seq_used"] = SEQ # set last SEQ into state
-			self.state["peer_state_changed"] = True
+		# if we are here, we are in sync, next valid sequence number is in SEQ
+#		print "Sync done, last valid SEQ " + str(SEQ) + " + last valid ACK " + str(ACK)
+		self.state["last_valid_ack_rcvd"]=ACK # set correct ACK into state
+		self.state["last_seq_used"] = SEQ # set last SEQ into state
+		self.state["peer_state_changed"] = True
 
-			# emit message via dispatcher
-			dispatcher.send(data = "LinkLayer done syncing", signal = LinkLayer.SIGNAL_LINKLAYER_SYNCED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
-		else:
-			print "LinkLayer: Aborting sync"
+		# emit message via dispatcher
+		dispatcher.send(data = "LinkLayer done syncing", signal = LinkLayer.SIGNAL_LINKLAYER_SYNCED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
+
 
 if __name__ == "__main__":
 	##############

@@ -130,6 +130,9 @@ mkdir -p $wdir/USB_STORAGE
 dd if=/dev/zero of=$wdir/USB_STORAGE/image.bin bs=1M count=128
 mkdosfs $wdir/USB_STORAGE/image.bin
 
+# create folder to store loot found
+mkdir -p $wdir/collected
+
 
 # create systemd service unit for P4wnP1 startup
 if [ ! -f /etc/systemd/system/P4wnP1.service ]; then

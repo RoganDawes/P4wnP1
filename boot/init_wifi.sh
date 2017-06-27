@@ -89,13 +89,12 @@ function start_wifi_accesspoint()
 	generate_hostapd_conf
 
 	hostapd /tmp/hostapd.conf > /dev/null &
-#	hostapd /tmp/hostapd.conf 
+#	hostapd /tmp/hostapd.conf
 
 	# configure interface
-	ifconfig wlan0 172.24.0.1 netmask 255.255.255.252
+	ifconfig wlan0 $WIFI_ACCESSPOINT_IP netmask $WIFI_ACCESSPOINT_NETMASK
 
 	# start DHCP server (second instance if USB over Etherne is in use)
 	generate_dnsmasq_wifi_conf
 	dnsmasq -C /tmp/dnsmasq_wifi.conf
 }
-
