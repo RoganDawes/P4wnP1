@@ -9,7 +9,7 @@ class TransportLayer():
 	Interfaces with LinkLayer via pydispatcher
 	"""
 
-	DEBUG=True
+	DEBUG=False
 
         SIGNAL_LINKLAYER_STARTED = "LinkLayerStarted"
         SIGNAL_LINKLAYER_SYNCING = "LinkLayerSyncing"

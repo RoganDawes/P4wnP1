@@ -142,6 +142,7 @@ class LinkLayer:
 			if self.state["peer_state_changed"]:
 				self.state["peer_state_changed"] = False # state changed is handled one time here
 			else:
+				#pass
 				continue # CPU consuming "do nothing"			
 
 
@@ -250,10 +251,10 @@ class LinkLayer:
 				# update state to correct last sequence number used
 				last_seq_used = current_seq
 					
-				if DEBUG:
-					#print "Writer: Written with seq " + str(current_seq) + " payload " + repr(outbuf[current_seq][2:])
-					if (ord(outbuf[current_seq][1]) & 63) > 0:
-						print repr(outbuf[current_seq])
+#				if DEBUG:
+#					#print "Writer: Written with seq " + str(current_seq) + " payload " + repr(outbuf[current_seq][2:])
+#					if (ord(outbuf[current_seq][1]) & 63) > 0:
+#						print repr(outbuf[current_seq])
 
 			self.fout.flush() # push written data to device file
 			
@@ -325,12 +326,12 @@ class LinkLayer:
 			# (if stopping is needed), thus we introduce a select with timeout, to check for readable data before calling read
 			#
 			# note: the additional select lowers transfer rate about 500 Byte/s
-			res = select([self.fin.fileno()], [], [], 0.1) # 1 ms timeout
+			res = select([self.fin.fileno()], [], [], 0.5) # 1 ms timeout
 			if len(res[0]) == 0:
 				# no data to read, restart loop (and check stop condition)
 				#	if we are here, there was no data received for 100 ms, this could be interpreted as disconnect of peer on LinkLayer
 				#	We leave the decission of interpreting this as "client disconnect" to another Layer by dispatching an event
-				dispatcher.send(data = "LinkLayer no client data for 100ms", signal = LinkLayer.SIGNAL_LINKLAYER_CONNECTION_LOST, sender = LinkLayer.DISPATCHER_SENDER_NAME)
+				dispatcher.send(data = "LinkLayer no client data for 500ms", signal = LinkLayer.SIGNAL_LINKLAYER_CONNECTION_LOST, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 				continue
 
 			inbytes = self.fin.read(64)
