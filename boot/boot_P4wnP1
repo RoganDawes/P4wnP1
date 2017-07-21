@@ -34,6 +34,13 @@ source $wdir/boot/init_led.sh
 echo "P4wnP1: Loading config ..."
 source $wdir/boot/init_config.sh
 
+# Create bash script which could be altered from /home/pi/.profile
+touch /tmp/profile.sh
+echo "#!/bin/bash" >> /tmp/profile.sh
+echo $(declare -p ledtrigger | cut -d" " -f3) >> /tmp/profile.sh
+declare -f led_blink >> /tmp/profile.sh
+declare -f onLogin >> /tmp/profile.sh
+chown pi:pi /tmp/profile.sh
 
 echo "P4wnP1: Initializing USB gadget ..."
 source $wdir/boot/init_usb.sh

@@ -124,19 +124,20 @@ function create_DHCP_config()
 			listen-address=$IF_IP
 			dhcp-range=$IF_DHCP_RANGE,$IF_MASK,5m
 
-			# router
-			dhcp-option=3,$IF_IP
-
-			# DNS
-			dhcp-option=6,$IF_IP
-
-			# NETBIOS NS
-			dhcp-option=44,$IF_IP
-			dhcp-option=45,$IF_IP
 		EOF
 
 		if $ROUTE_SPOOF; then
 			cat <<- EOF >> /tmp/dnsmasq_usb_eth.conf
+				# router
+				dhcp-option=3,$IF_IP
+
+				# DNS
+				dhcp-option=6,$IF_IP
+
+				# NETBIOS NS
+				dhcp-option=44,$IF_IP
+				dhcp-option=45,$IF_IP
+
 				# routes static (route 0.0.0.1 to 127.255.255.254 through our device)
 				dhcp-option=121,0.0.0.0/1,$IF_IP,128.0.0.0/1,$IF_IP
 				# routes static (route 128.0.0.1 to 255.255.255.254 through our device)

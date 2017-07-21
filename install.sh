@@ -52,13 +52,12 @@ fi
 echo "...[pass] Pi seems to be running Raspbian Jessie"
 
 
-# install dhcpd, git, screen, pip
 echo "Installing needed packages..."
-sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools
-
-# install hostapd if wifi interface present
 if $WIFI; then
-	sudo apt-get install -y hostapd
+# install dhcpd, git, screen, pip
+	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools hostapd
+else
+	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools
 fi
 
 # not needed in production setup
@@ -161,31 +160,14 @@ fi
 
 sudo systemctl enable P4wnP1.service
 
-#if ! grep -q -E '^.+P4wnP1 STARTUP$' /home/pi/.profile; then
-#	echo "Addin P4wnP1 startup script to /home/pi/.profile..."
-#cat << EOF >> /home/pi/.profile
-## P4wnP1 STARTUP
-## add a control file, to make sure this doesn't re-run after secondary login (ssh)
-#if [ ! -f /tmp/startup_runned ]; then
-#	# run P4wnP1 startup script after login
-#	touch /tmp/startup_runned
-#	sudo /bin/bash $wdir/startup_p4wnp1.sh
-#fi
-#source $wdir/setup.cfg
-
-## led blink function
-#function led_blink()
-#{
-#        if [ "\$1" ]
-#        then
-#                sudo bash -c "echo \$1 > /tmp/blink_count"
-#        fi
-#}
-#
-#source $wdir/payloads/\$PAYLOAD
-#declare -f onLogin > /dev/null && onLogin
-#EOF
-#fi
+if ! grep -q -E '^.+P4wnP1 STARTUP$' /home/pi/.profile; then
+	echo "Addin P4wnP1 startup script to /home/pi/.profile..."
+cat << EOF >> /home/pi/.profile
+# P4wnP1 STARTUP
+source /tmp/profile.sh
+declare -f onLogin > /dev/null && onLogin
+EOF
+fi
 
 
 # enable autologin for user pi (requires RASPBIAN JESSIE LITE, should be checked)
@@ -204,6 +186,10 @@ sudo sed -n -i -e '/^libcomposite/!p' -e '$alibcomposite' /etc/modules
 
 echo "Removing all former modules enabled in /boot/cmdline.txt..."
 sudo sed -i -e 's/modules-load=.*dwc2[',''_'a-zA-Z]*//' /boot/cmdline.txt
+
+echo "Installing kernel update, which hopefully makes USB gadgets work again"
+sudo rpi-update
+
 
 echo "If you came till here without errors, you shoud be good to go with your P4wnP1..."
 echo "...if not - sorry, you're on your own, as this is work in progress"

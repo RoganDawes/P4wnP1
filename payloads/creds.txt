@@ -80,3 +80,10 @@ function onTargetGotIP()
 	
 }
 
+function onLogin()
+{
+        led_blink 3
+        sudo screen -d -r
+        return
+}
+

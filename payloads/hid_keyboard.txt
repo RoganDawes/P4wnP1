@@ -21,7 +21,7 @@ USE_HID=true            # if true HID (keyboard) will be enabled
 HID_KEYBOARD_TEST=true
 
 # overwrite defaul keyboard language
-lang="de"
+lang="us"
 
 function onKeyboardUp()
 {
