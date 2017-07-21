@@ -31,6 +31,7 @@ class P4wnP1(cmd.Cmd):
 	CTRL_MSG_FROM_CLIENT_RUN_METHOD_RESPONSE = 4 # response from a method ran on client
 	CTRL_MSG_FROM_CLIENT_ADD_CHANNEL = 5
 	CTRL_MSG_FROM_CLIENT_RUN_METHOD = 6 # client tasks server to run a method
+	CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE = 7 
 
 	# message types from server (python) to client (powershell)
 	CTRL_MSG_FROM_SERVER_STAGE2_RESPONSE = 1000
@@ -39,6 +40,7 @@ class P4wnP1(cmd.Cmd):
 	CTRL_MSG_FROM_SERVER_RUN_METHOD = 1003 # server tasks client to run a method
 	CTRL_MSG_FROM_SERVER_ADD_CHANNEL_RESPONSE = 1004
 	CTRL_MSG_FROM_SERVER_RUN_METHOD_RESPONSE = 1005 # response from a method ran on server
+	CTRL_MSG_FROM_SERVER_DESTROY = 1006 # response from a method ran on server
 
 	def __init__(self, linklayer, transportlayer, stage2 = "", duckencoder = None):
 		# state value to inform sub threads of running state
@@ -85,14 +87,15 @@ Enter "help" for help
 	# Internal methods of P4wnP1 server
 	##########################
 	
-	def sendControlMessage(self, ctrl_message_type, payload):
+	def sendControlMessage(self, ctrl_message_type, payload = None):
 		ctrl_channel = 0
 
 		# construct header
 		ctrl_message = struct.pack("!II", ctrl_channel, ctrl_message_type)
 
 		# append payload
-		ctrl_message += payload
+		if payload:
+			ctrl_message += payload
 
 		self.tl.write_stream(ctrl_message)
 	
@@ -227,6 +230,8 @@ Enter "help" for help
 						self.client.setPSVersion(payload)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_ADD_CHANNEL:
 						self.addChannel(payload)
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE:
+						print "Client received kill request and tries to terminate."
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD:
 						print "Run method request with following payload received: {0} ".format(repr(payload))
 
@@ -270,10 +275,13 @@ Enter "help" for help
 
 
 
-	def handler_client_method_response(self, response):
-		# test handler, print response
-		print "Testhandler for client method, result:  " + repr(response)
+	#def handler_client_method_response(self, response):
+		## test handler, print response
+		#print "Testhandler for client method, result:  " + repr(response)
 
+	def killCLient(self):
+		self.sendControlMessage(P4wnP1.CTRL_MSG_FROM_SERVER_DESTROY)
+	
 	###################
 	# caller methods and handlers for remote client methods
 	#####################
@@ -363,6 +371,18 @@ Enter "help" for help
 	###################
 	# interface methods callable from P4wnP1 console
 	#####################
+
+
+	def do_KillClient(self, line):
+		'''
+		Try to kill the process of the remote client
+		'''
+
+		if not self.client.isConnected():
+			print "This doesn't make sense, there's no client connected"
+			return
+		
+		self.killCLient()
 
 	def do_CreateProc(self, line):
 		'''

