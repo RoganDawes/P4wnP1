@@ -53,6 +53,7 @@ echo "...[pass] Pi seems to be running Raspbian Jessie"
 
 
 echo "Installing needed packages..."
+sudo apt-get update
 if $WIFI; then
 # install dhcpd, git, screen, pip
 	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools hostapd
