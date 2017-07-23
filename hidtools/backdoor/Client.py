@@ -147,6 +147,9 @@ class Client(object):
 
     def addProc(self, proc):
         self.__processes[proc.id] = proc
+        
+    def removeProc(self, proc_id):
+        del self.__processes[proc_id]
 
     def getProcsWithChannel(self):
         procs=[]
@@ -201,6 +204,7 @@ class ClientProcess(object):
         self.ch_stdin = ch_stdin
         self.ch_stdout = ch_stdout
         self.ch_stderr = ch_stderr
+        self.hasExited = False
 
     def writeStdin(self, data):
         self.ch_stdin.writeOutput(data)

