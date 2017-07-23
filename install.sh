@@ -191,13 +191,24 @@ sudo sed -i -e 's/modules-load=.*dwc2[',''_'a-zA-Z]*//' /boot/cmdline.txt
 echo "Installing kernel update, which hopefully makes USB gadgets work again"
 sudo rpi-update
 
-
+echo "===================================================================================="
 echo "If you came till here without errors, you shoud be good to go with your P4wnP1..."
 echo "...if not - sorry, you're on your own, as this is work in progress"
-echo "Attach P4wnP1 to your target and enjoy output via HDMI"
-echo "You should be able to SSH in with pi@172.16.0.1"
 echo 
+echo "Attach P4wnP1 to a host and you should be able to SSH in with pi@172.16.0.1 (via RNDIS/CDC ECM)"
+echo
+echo "If you use a USB OTG adapter to attach a keyboard, P4wnP1 boots into interactive mode"
+echo
+echo "If you're using a Pi Zero W, a WiFi AP should be opened. You could use the AP to setup P4wnP1, too."
+echo "          WiFi name:    P4wnP1"
+echo "          Key:          MaMe82-P4wnP1"
+echo "          SSH acces:    pi@172.24.0.1 (password: raspberry)"
+echo
+echo "Got to your installation directory. From there you can alter the settings in the file 'setup.cfg',"
+echo "like payload and language selection"
+echo 
+echo "If you're using a Pi Zero W, give the HID backdoor a try ;-)"
+echo
 echo "You need to reboot the Pi now!"
-#echo "Interesting stuff like NTLM hashes gets dumped into sqlite DB at:"
-#echo "$wdir/Responder/Responder.db"
-#echo
+echo "===================================================================================="
+
