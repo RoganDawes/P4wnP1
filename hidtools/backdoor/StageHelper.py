@@ -3,12 +3,16 @@
 
 class StageHelper:
 	@staticmethod
-	def gzipstream(data):
-			import zlib
+	def out_PS_SetWindowPos(x = -400,  y = -400,  cx = 100,  cy = 100,  flags = 0x4000+0x04):
+		swpos = '$h=(Get-Process -Id $pid).MainWindowHandle;$ios=[Runtime.InteropServices.HandleRef];$hw=New-Object $ios (1,$h);$i=New-Object $ios (2,0);(([reflection.assembly]::LoadWithPartialName("WindowsBase")).GetType("MS.Win32.UnsafeNativeMethods"))::SetWindowPos($hw,$i,{0},{1},{2},{3},{4})'.format(x, y, cx, cy, flags)
+		return swpos
 
-			gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS + 16) # compatible to Windows GZipStream
-			gzip_data = gzip_compress.compress(data) + gzip_compress.flush()
-			return gzip_data
+	@staticmethod
+	def gzipstream(data):
+		import zlib
+		gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS + 16) # compatible to Windows GZipStream
+		gzip_data = gzip_compress.compress(data) + gzip_compress.flush()
+		return gzip_data
 
 	@staticmethod	
 	def b64encode(data):

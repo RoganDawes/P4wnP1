@@ -149,6 +149,13 @@ class Client(object):
         self.__processes[proc.id] = proc
         
     def removeProc(self, proc_id):
+        if proc_id in self.__processes:
+            if proc_id in self.__processes:
+                proc =  self.__processes[proc_id]
+                self.removeChannel(proc.ch_stdin.id)
+                self.removeChannel(proc.ch_stderr.id)
+                self.removeChannel(proc.ch_stdout.id)
+        
         del self.__processes[proc_id]
 
     def getProcsWithChannel(self):
@@ -170,6 +177,21 @@ class Client(object):
             # this is an BIDIRECTIONAL or OUTPUT channel
             self.__channels_out[channel.id] = channel
             Client.print_debug("Channel with ID {0} added to INPUT channels".format(channel.id))
+
+    def getChannel(self, channel_id):
+        if channel_id in self.__channels:
+            return self.__channels[channel_id]
+        else:
+            return None
+        
+    def removeChannel(self, channel_id):
+        ch =  self.getChannel(channel_id)
+        if ch:
+            if channel_id in self.__channels_in:
+                del self.__channels_in[channel_id]
+            if channel_id in self.__channels_out:
+                del self.__channels_out[channel_id]
+            del self.__channels[channel_id]
 
     def sendToInputChannel(self, ch, payload):
         # check if the channel exists in input channels, otherwise we aren't able to write to it
@@ -199,12 +221,13 @@ class Client(object):
 
 class ClientProcess(object):
 
-    def __init__(self, id, ch_stdin, ch_stdout, ch_stderr):
+    def __init__(self, id, ch_stdin, ch_stdout, ch_stderr,  keepTillInteract = True):
         self.id = id
         self.ch_stdin = ch_stdin
         self.ch_stdout = ch_stdout
         self.ch_stderr = ch_stderr
         self.hasExited = False
+        self.keepTillInteract =  keepTillInteract
 
     def writeStdin(self, data):
         self.ch_stdin.writeOutput(data)
