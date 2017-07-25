@@ -81,6 +81,7 @@ class DuckEncoder:
 			else:
 				# left CTRL without modifier
 				result = DuckEncoder.prop2USBByte("KEY_LEFT_CTRL") + "\x00"
+				
 
 		elif instr[0] == "ALT":
 			# check if second argument after  ALT
@@ -215,9 +216,24 @@ class DuckEncoder:
 	# returns USB key byte and modifier byte for the given partial single key instruction
 	@staticmethod
 	def keyInstr2USBBytes(keyinstr, keyProp, langProp):
-		key_entry = "KEY_" + keyinstr.strip()
-		result = ""
+		####
+		# Language fix
+		# - a key instruction which is only 1 char in length, is represented as single ASCII char
+		# - for example <CTRL>+<Z> in GERMAN has to be translated to MODIFIER_CTRL + KEY_Y
+		# - but if "CONTROL z" would be given the current code translates to MODIFIER_CTRL + KEY_Z
+		# - to account for this, we build the key instruction like ASCII translation, but remove the modifiers
+		# thus bot, 'Z' and 'z' should become KEY_Y for German language layout
+		#####
 		keyval = None
+		key_entry = ""
+		if len(keyinstr) == 1:				
+			keyval = DuckEncoder.ASCIIChar2USBBytes(keyinstr, keyProp, langProp)[0]
+			return keyval
+		else:
+			key_entry = "KEY_" + keyinstr.strip()
+		
+		result = ""
+		
 
 
 		# check keyboard property (first attempt)
@@ -267,13 +283,13 @@ class DuckEncoder:
 			else:
 				keyinstr = keyinstr[0:1].upper()
 
-		# second attempt
-		key_entry = "KEY_" + keyinstr.strip()
-
-		if key_entry in keyProp:
-			keyval = keyProp[key_entry]
-		elif key_entry in langProp:
-			keyval = langProp[key_entry]
+			# second attempt
+			key_entry = "KEY_" + keyinstr.strip()
+	
+			if key_entry in keyProp:
+				keyval = keyProp[key_entry]
+			elif key_entry in langProp:
+				keyval = langProp[key_entry]
 
 		if keyval == None:
 			print "Error: No keycode entry for " + key_entry

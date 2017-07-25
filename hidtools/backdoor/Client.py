@@ -6,6 +6,7 @@ class Client(object):
     DEBUG = False
 
     def __init__(self):
+        self.__callbacksConnectChange =  []
         self.reset_state()
 
     @staticmethod
@@ -30,37 +31,58 @@ class Client(object):
         self.__channels = {}
         self.__channels_in = {}
         self.__channels_out = {}
+        self.__isConnected =  False
 
     def print_state(self):
         print "Client state"
         print "============"
         print "Link:\t{0}".format(self.__hasLink)
         print "Stage2:\t{0}".format(self.__stage2)
+        print "Connected:\t{0}".format(self.__isConnected)
         print "PS:\t{0}".format(self.__ps_version)
         print "OS:\n{0}".format(self.__os_info)
 
-    def isConnected(self):
-        if self.__hasLink and self.__stage2 == "RUNNING":
-            return True
+    def setConnected(self, connected):
+        if self.__isConnected == connected:
+            return
+        for callback in self.__callbacksConnectChange:
+            callback(connected)
+        if connected:
+            self.onConnect()
         else:
-            return False
+            self.onDisconnect()
+        self.__isConnected = connected
+        
+    def registerCallbackOnConnectChange(self, callaback):
+        self.__callbacksConnectChange.append(callaback)
+        
+    def unregisterCallbackOnConnectChange(self, callback):
+        self.__callbacksConnectChange.remove(callback)
+        
+    def isConnected(self):
+        return self.__isConnected
 
     def setLink(self, link):
         if not link == self.__hasLink:
             Client.print_debug("Link state changed: {0}".format(link))
             if not link:
                 self.reset_state()
+                self.setConnected(False)
+                #self.onDisconnect()
         self.__hasLink = link
 
     def setStage2(self, stage2):
         if not stage2 == self.__stage2:
             Client.print_debug("Stage2 state changed: {0}".format(stage2))
             self.__stage2 = stage2
-            if stage2 == "RUNNING":
-                self.onConnect()
-
+            
     def onConnect(self):
-        print "\nTarget connected through HID covert channel\n"
+        pass
+        #print "\nTarget connected through HID covert channel\n"
+        
+    def onDisconnect(self):
+        pass
+        #print "\nTarget disconnected\n"        
 
     def setOSInfo(self, osinfo):
         self.__os_info = osinfo

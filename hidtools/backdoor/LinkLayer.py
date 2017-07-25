@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import struct
+import threading
 from threading import Thread, current_thread
 from threading import Event
 import time
@@ -20,7 +21,7 @@ class LinkLayer:
 	SIGNAL_LINKLAYER_SYNCED = "LinkLayerSynced"
 	SIGNAL_LINKLAYER_CONNECTION_RESET = "LinkLayerConnectionReset"
 	SIGNAL_LINKLAYER_CONNECTION_ESTABLISHED = "LinkLayerConnectionEstablished"
-	SIGNAL_LINKLAYER_CONNECTION_LOST = "LinkLayerConnectionLost"
+	SIGNAL_LINKLAYER_CONNECTION_TIMEOUT = "LinkLayerConnectionTimeout"
 	SIGNAL_LINKLAYER_STOPPING = "LinkLayerStopping"
 	SIGNAL_LINKLAYER_STOPPED = "LinkLayerStopped"
 	SIGNAL_LINKLAYER_STREAM_RECEIVED = "LinkLayerStreamEnqueued"
@@ -30,6 +31,15 @@ class LinkLayer:
 
 	def __init__(self, devfile_in, devfile_out, on_connect_callback=None):
 		self.state={}
+		self.state["connectCallback"] = on_connect_callback # unused at the moment, callback mustn't be processed in LinkLayer threads
+		self.fin = devfile_in
+		self.fout = devfile_out
+
+		self.__resetState()
+		# receive mesage from transport layer
+		dispatcher.connect(self.__handle_transport_layer, sender=LinkLayer.TRANSPORTLAYER_SENDER_NAME)
+		
+	def __resetState(self):
 		self.state["qout"] = Queue.Queue()
 		#self.state["qin"] = Queue.Queue()
 		self.state["MAX_OUT_QUEUE"]=32 # how many packets are allowed to be pening in output queue (without ACK received)
@@ -41,13 +51,9 @@ class LinkLayer:
 		self.state["PAYLOAD_MAX_SIZE"]=62
 		self.state["EVENT_STOP_WRITE"]=Event()
 		self.state["EVENT_STOP_READ"]=Event()
-		self.fin = devfile_in
-		self.fout = devfile_out
-		self.state["connectCallback"] = on_connect_callback # unused at the moment, callback mustn't be processed in LinkLayer threads
+		
 		self.state["payload_bytes_received"] = 0
-
-		# receive mesage from transport layer
-		dispatcher.connect(self.__handle_transport_layer, sender=LinkLayer.TRANSPORTLAYER_SENDER_NAME)
+		
 
 	# handle transport layer requests
 	def __handle_transport_layer(self, signal, data):
@@ -68,10 +74,16 @@ class LinkLayer:
 		self.state["EVENT_STOP_READ"].set()
 		# terminate read thread if set
 		if self.state.has_key("read_thread"):
-			self.state["read_thread"].join()
+			try:
+				self.state["read_thread"].join()
+			except RuntimeError:
+				pass # same thread or not started
 		# terminate write thread if set
-		if self.state.has_key("write_thread"):
-			self.state["write_thread"].join()
+		if self.state.has_key("write_thread") and threading.currentThread != self.state["write_thread"]:
+			try:
+				self.state["write_thread"].join()
+			except RuntimeError:
+				pass # same thread or not started
 
 		dispatcher.send(data = "LinkLayer stopped", signal = LinkLayer.SIGNAL_LINKLAYER_STOPPED, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 
@@ -80,6 +92,16 @@ class LinkLayer:
 		conthread = Thread(target = self.start, name = "LinkLayer connection thread", args = ())
 		conthread.start()
 		
+	def restart(self):
+		self.stop()
+		self.__resetState()
+		self.start()
+		
+	def restart_background(self):
+		#print "LinkLayer restart:"
+		self.stop()
+		self.__resetState()
+		self.start_background()
 
 	def start(self):
 		#sync linklayer (Send with SEQ till correct ACK received)
@@ -317,6 +339,7 @@ class LinkLayer:
 		stop = self.state["EVENT_STOP_READ"]
 
 		stream = "" # used to concat fragmented reports to full stream
+		timeoutsum =  0
 	
 		while not stop.isSet():
 #			time.sleep(1.5) # slow down loop, try to produce errors
@@ -326,13 +349,17 @@ class LinkLayer:
 			# (if stopping is needed), thus we introduce a select with timeout, to check for readable data before calling read
 			#
 			# note: the additional select lowers transfer rate about 500 Byte/s
-			res = select([self.fin.fileno()], [], [], 0.5) # 1 ms timeout
+			timeout = 0.5
+			res = select([self.fin.fileno()], [], [], timeout) # 1 ms timeout
 			if len(res[0]) == 0:
 				# no data to read, restart loop (and check stop condition)
 				#	if we are here, there was no data received for 100 ms, this could be interpreted as disconnect of peer on LinkLayer
 				#	We leave the decission of interpreting this as "client disconnect" to another Layer by dispatching an event
-				dispatcher.send(data = "LinkLayer no client data for 500ms", signal = LinkLayer.SIGNAL_LINKLAYER_CONNECTION_LOST, sender = LinkLayer.DISPATCHER_SENDER_NAME)
+				timeoutsum += int(timeout * 1000) # convert to milliseconds
+				dispatcher.send(data = timeoutsum, signal = LinkLayer.SIGNAL_LINKLAYER_CONNECTION_TIMEOUT, sender = LinkLayer.DISPATCHER_SENDER_NAME)
 				continue
+			else:
+				timeoutsum =  0 # reset timeout
 
 			inbytes = self.fin.read(64)
 

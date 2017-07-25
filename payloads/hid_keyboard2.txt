@@ -11,17 +11,17 @@
 # Make sure to change USB_PID if you enable different USB functionality in order
 # to force Windows to enumerate the device again
 USB_VID="0x1d6b"        # Vendor ID
-USB_PID="0x1129"        # Product ID
+USB_PID="0x1230"        # Product ID
 
 # Overwrite default settings (setup.cfg) for keyboard funtion
-USE_RNDIS=true          # if true RNDIS will be enabled
+USE_RNDIS=false          # if true RNDIS will be enabled
 USE_HID=true            # if true HID (keyboard) will be enabled
 
 # use LED based HID keyboard test, to fire callback to onKeyboardUp()
 HID_KEYBOARD_TEST=true
 
 # overwrite default keyboard language
-lang="us"
+lang="de"
 
 function onKeyboardUp()
 {
@@ -40,8 +40,10 @@ EOF
 	# single command outputs piped to outhid
 	echo "Target host finished loading HID driver" | outhid
 	echo "Thi demo payload is located at: $wdir/$PAYLOAD" | outhid
-	echo "If output uses wrong keyboard layout, change the lang parameter in the payload script" | outhid
-	
+	echo "If output uses wrong keyboard layout, change the 'lang' parameter in the payload script" | outhid
+	echo "The payload uses the result of the 'key_trigger' to decide how to go on... " | outhid
+	echo "... so grab a copy and modify it to your needs" | outhid
+	echo "In order to run a different payload, modify 'PAYLOAD' in setup.cfg" | outhid
 
 	while $true; do
 		# multiple command outputs pipe to single "outhid" call
@@ -65,13 +67,16 @@ EOF
 		case "$?" in
 			1)  echo "Key trigger CAPSLOCK detected" | outhid
 			    echo "------------========---------" | outhid
-			    echo "iF YOUR OUTPUT IS CASE SWITCHED - YOU HAVE CAPSLOCK STILL ENABLED" | outhid
-			    echo "NUMLOCK IS THE PREFERRED TRIGGER" | outhid
-			    echo  | outhid;;
+			    echo "LED blink set to: 1" | outhid
+			    led_blink 1;;
 			2)  echo "Key trigger NUMLOCK detected" | outhid
-			    echo "------------=======---------" | outhid;;
+			    echo "------------=======---------" | outhid
+			    echo "LED blink set to: 2" | outhid
+			    led_blink 2;;
 			3)  echo "Key trigger SCROLLLOCK detected" | outhid
-			    echo "------------==========---------" | outhid;;
+			    echo "------------==========---------" | outhid
+			    echo "LED blink set to: 3" | outhid
+			    led_blink 3;;
 	
 		esac
 	done
