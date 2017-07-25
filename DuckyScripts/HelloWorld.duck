@@ -1,0 +1,6 @@
+GUR r
+DELAY 500
+notepad.exe
+DELAY 1000
+STRING Hello World
+ENTER
