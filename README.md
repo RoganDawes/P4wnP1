@@ -1,4 +1,4 @@
-P4wnP1 by MaMe82
+P4wnP1 by MaMe82 (devel branch)
 ================
 
 P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspberry Pi Zero or Raspberry Pi Zero W.
@@ -33,8 +33,8 @@ Feature announcement
 Something nifty is coming! Currently I'm working on a **covert channel** to communicate from P4wnP1 to target host and back, **based on pure HID**. This means there's no need for RNDIS, ECM or other non stealthy device modes to get a shell on the target.
 But code has to be executed on the target, to handle the non standard communication channel. To run the code I'm focused on the major platform (Windows) and I'm using PowerShell on target (packed since Windows 7). 
 
-As this is going to be a major P4wnP1 feature, I'm not working on anything else at the moment - so please excuse if commits are less frequently, right now. The focus of this attack vector isn't drive-by, but gaining persistent backdoor access. 
-This should be done with a low detection profile (no serial, no Ethernet over USB, no USB Mass Storage)
+Progress (things already done)
+------------------------------
 
 Video demo of first HID payload (comments in subtitles)
 
@@ -51,8 +51,11 @@ What will be implemented:
 - HID based file transfer from and to P4wnP1 (current development)
 - Payload to bridge an Airgap target, by relaying a shell over raw HID and provide it from P4wnP1 via WiFi or Bluetooth (not implemented yet)
 
+Other features currently not available in master
+--------------------------------------
+- finished **payload trigger via target's keyboard** CAPSLOCK / NUMLOCK / SCROLLLOCK (could be used to fire insider attacks on demand or for payload branching), see payload: ``hid_keyboard2.txt``
+- payload **callback when target installed keyboard driver** (no more delays to fire keyboard attacks), see payloads: ``hid_keyboard.txt`` and ``hid_keyboard2.txt``
 
-What would be possible, but won't be implemented at the moment:
 
 - Modular, RAT like payload enhancement (integration of PowerSploit etc.) for airgapped targets
 - Binding HID channel to a TCP socket, on both, target and P4wnP1 to use TCP based tools (metasploit, nmap etc.)

@@ -1,0 +1,40 @@
+# P4wnP1 demo payload by MaMe82
+# ==========================
+#
+# Emulates a HID keyboard and prints out "Keyboard is Running"
+# Uses NUMLOCK LED test, to check if target is ready to receive keystrokes
+
+
+# =============================
+# USB setup
+# =============================
+# Make sure to change USB_PID if you enable different USB functionality in order
+# to force Windows to enumerate the device again
+USB_VID="0x1d6b"        # Vendor ID
+USB_PID="0x110c"        # Product ID
+
+# Overwrite default settings (setup.cfg) for keyboard funtion
+USE_RNDIS=true          # if true RNDIS will be enabled
+USE_HID=true            # if true HID (keyboard) will be enabled
+
+# use LED based HID keyboard test, to fire callback to onKeyboardUp()
+HID_KEYBOARD_TEST=true
+
+# overwrite defaul keyboard language
+lang="us"
+
+function onKeyboardUp()
+{
+	# we need no initial keyboard delay, before starting the DuckyScript
+	# if this method gets called, we know the HID keyboard stack is usable
+
+	cat <<- EOF | duckhid
+		GUI r
+		DELAY 500
+		STRING notepad.exe
+		ENTER
+		DELAY 1000
+EOF
+	echo "Keyboard is running" | outhid
+}
+

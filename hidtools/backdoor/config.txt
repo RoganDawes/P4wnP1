@@ -1,0 +1,14 @@
+# path to device used for keyboard emulation
+HID_KEYBOARD_DEV=/dev/hidg0
+
+# path to device used for raw HID communications
+HID_RAW_DEV=/dev/hidg1
+
+# supported languages: be, br, ca, ch, de, dk, es, fi, fr, gb, hr, it, no, pt, ru, si, sv, t, us
+KEYBOARD_LANG=us
+
+PATH_DUCKYSCRIPT=../../DuckyScripts
+
+PATH_STAGE1_DOTNET=Stage1.dll
+PATH_STAGE1_PS=Stage1.ps1
+PATH_STAGE2_DOTNET=P4wnP1.dll

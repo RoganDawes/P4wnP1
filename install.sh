@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # P4wnP1 (PiZero IPv4 traffic interceptor and USB hash stealer)
 # stetup script
@@ -32,6 +32,9 @@
 # get DIR the script is running from (by CD'ing in and running pwd
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && pwd)
 
+# check for wifi capability
+if $wdir/wifi/check_wifi.sh; then WIFI=true; else WIFI=false; fi
+
 # check Internet conectivity against 
 echo "Testing Internet connection and name resolution..."
 if [ "$(curl -s http://www.msftncsi.com/ncsi.txt)" != "Microsoft NCSI" ]; then 
@@ -49,9 +52,14 @@ fi
 echo "...[pass] Pi seems to be running Raspbian Jessie"
 
 
-# install dhcpd, git, screen, pip
 echo "Installing needed packages..."
-sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools
+sudo apt-get update
+if $WIFI; then
+# install dhcpd, git, screen, pip
+	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools hostapd
+else
+	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools
+fi
 
 # not needed in production setup
 #sudo apt-get install -y tshark tcpdump
@@ -67,7 +75,7 @@ sudo bash -c "echo nameserver 8.8.8.8 > /etc/resolv.conf"
 # install pycrypto
 echo "Installing needed python additions..."
 sudo pip install pycrypto
-
+sudo pip install pydispatcher
 
 # Installing Responder isn't needed anymore as it is packed into the Repo as submodule
 #echo "Installing Responder (patched MaMe82 branch with Internet connection emulation and wpad additions)..."
@@ -79,7 +87,10 @@ echo "Disabeling unneeded services to shorten boot time ..."
 sudo update-rc.d ntp disable
 sudo update-rc.d avahi-daemon disable
 sudo update-rc.d dhcpcd disable
+sudo update-rc.d networking disable
+sudo update-rc.d avahi-daemon disable
 sudo update-rc.d dnsmasq disable # we start this by hand later on
+
 
 echo "Enable SSH server..."
 sudo update-rc.d ssh enable
@@ -119,22 +130,43 @@ mkdir -p $wdir/USB_STORAGE
 dd if=/dev/zero of=$wdir/USB_STORAGE/image.bin bs=1M count=128
 mkdosfs $wdir/USB_STORAGE/image.bin
 
+# create folder to store loot found
+mkdir -p $wdir/collected
 
-# insert startup scrip into /home/pi/.profile if not present
-echo "Injecting P4wnP1 startup script..."
+
+# create systemd service unit for P4wnP1 startup
+if [ ! -f /etc/systemd/system/P4wnP1.service ]; then
+        echo "Injecting P4wnP1 startup script..."
+        cat <<- EOF | sudo tee /etc/systemd/system/P4wnP1.service > /dev/null
+                [Unit]
+                Description=P4wnP1 Startup Service
+                #After=systemd-modules-load.service
+                After=local-fs.target
+                DefaultDependencies=no
+                Before=sysinit.target
+
+                [Service]
+                #Type=oneshot
+                Type=forking
+                RemainAfterExit=yes
+                ExecStart=/bin/bash $wdir/boot/boot_P4wnP1
+                StandardOutput=journal+console
+                StandardError=journal+console
+
+                [Install]
+                #WantedBy=multi-user.target
+                WantedBy=sysinit.target
+EOF
+fi
+
+sudo systemctl enable P4wnP1.service
+
 if ! grep -q -E '^.+P4wnP1 STARTUP$' /home/pi/.profile; then
 	echo "Addin P4wnP1 startup script to /home/pi/.profile..."
 cat << EOF >> /home/pi/.profile
 # P4wnP1 STARTUP
-# add a control file, to make sure this doesn't re-run after secondary login (ssh)
-if [ ! -f /tmp/startup_runned ]; then
-	# run P4wnP1 startup script after login
-	touch /tmp/startup_runned
-	sudo /bin/bash $wdir/startup_p4wnp1.sh
-fi
-source $wdir/setup.cfg
-source $wdir/payloads/\$PAYLOAD
-onLogin
+source /tmp/profile.sh
+declare -f onLogin > /dev/null && onLogin
 EOF
 fi
 
@@ -156,11 +188,27 @@ sudo sed -n -i -e '/^libcomposite/!p' -e '$alibcomposite' /etc/modules
 echo "Removing all former modules enabled in /boot/cmdline.txt..."
 sudo sed -i -e 's/modules-load=.*dwc2[',''_'a-zA-Z]*//' /boot/cmdline.txt
 
+echo "Installing kernel update, which hopefully makes USB gadgets work again"
+sudo rpi-update
+
+echo "===================================================================================="
 echo "If you came till here without errors, you shoud be good to go with your P4wnP1..."
 echo "...if not - sorry, you're on your own, as this is work in progress"
-echo "Attach P4wnP1 to your target and enjoy output via HDMI"
-echo "You should be able to SSH in with pi@172.16.0.1"
 echo 
-echo "Interesting stuff like NTLM hashes gets dumped into sqlite DB at:"
-echo "$wdir/Responder/Responder.db"
+echo "Attach P4wnP1 to a host and you should be able to SSH in with pi@172.16.0.1 (via RNDIS/CDC ECM)"
 echo
+echo "If you use a USB OTG adapter to attach a keyboard, P4wnP1 boots into interactive mode"
+echo
+echo "If you're using a Pi Zero W, a WiFi AP should be opened. You could use the AP to setup P4wnP1, too."
+echo "          WiFi name:    P4wnP1"
+echo "          Key:          MaMe82-P4wnP1"
+echo "          SSH acces:    pi@172.24.0.1 (password: raspberry)"
+echo
+echo "Got to your installation directory. From there you can alter the settings in the file 'setup.cfg',"
+echo "like payload and language selection"
+echo 
+echo "If you're using a Pi Zero W, give the HID backdoor a try ;-)"
+echo
+echo "You need to reboot the Pi now!"
+echo "===================================================================================="
+

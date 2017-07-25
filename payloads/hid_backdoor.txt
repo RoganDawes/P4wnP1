@@ -1,0 +1,50 @@
+# P4wnP1 demo payload by MaMe82
+# ==========================
+
+
+# =============================
+# USB setup
+# =============================
+# Make sure to change USB_PID if you enable different USB functionality in order
+# to force Windows to enumerate the device again
+USB_VID="0x1D6B"        # Vendor ID
+USB_PID="0x0437"        # Product ID
+
+USE_ECM=false            # if true CDC ECM will be enabled
+USE_RNDIS=false          # if true RNDIS will be enabled
+USE_HID=true            # if true HID (keyboard) will be enabled
+USE_RAWHID=true         # if true HID raw device will be enabled
+USE_UMS=false           # if true USB Mass Storage will be enabled
+
+# disable setting of static routes for all IPv4 addresses
+ROUTE_SPOOF=false
+
+# use LED based HID keyboard test
+USE_HID_TEST=true
+
+# overwrite keyboard language from setup.cfg
+lang="us" 
+
+# blink one time when payload script get's initiated
+led_blink 1 # usage at thi point is invalid, as the script gets called again on SSH login
+
+function onKeyboardUp()
+{
+
+
+	# start HID Server
+	screen -dmS hidsrv bash -c "cd $wdir/hidtools/backdoor; python P4wnP1.py"
+
+	# blink two times when hid keyboard is usable and HID server is started
+	led_blink 2
+}
+
+
+# commands in this function are ran on user login
+# the commans are ran by user "pi"
+function onLogin()
+{
+	led_blink 3
+	sudo screen -d -r
+	return
+}

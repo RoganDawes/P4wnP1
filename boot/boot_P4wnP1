@@ -1,0 +1,139 @@
+#!/bin/sh
+#
+# P4wnP1 (PiZero IPv4 traffic interceptor and USB hash stealer)
+# startup script
+# 	Author:	Marcus Mengs (MaMe82)
+#
+# Notes:
+# 	- setup_p4wnp1.sh should be ran before using this script
+#	- refer to comments for "inner workings"
+#	- work in progress (contains possible errors and typos)
+#	- if the device isn't detected changing the USB port (USB 2.0 prefered) or plug out and in
+#	  again could help
+#	- ssh service should be running, so your're able to connect with
+#		$ ssh pi@172.16.0.1
+#
+#
+# ToDo:
+#	- add manual system date adjusment, to not mess up logs due to missing NTP (store datetime of last boot)
+#	- after implementing multiple stages, add in LED support to highlight which stage currently is ran
+#	  by  P4wnP1 (done, "led_blink" function is available to payload scripts)
+#	- add shutdown capability to script, to allow file system syncing before power loss (could be done from 
+#	payload by calling "sync && sudo halt")
+#	- detect if HID works (send CAPS_LOCK and read back LED byte), add payload callback onHIDstarted (done 
+#	by function "key_trigger" available from payload scripts)
+
+
+# find working dir of script
+wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
+
+echo =================================== P4wnP1 startup ===========================================
+echo "P4wnP1: Init LED control..."
+source $wdir/boot/init_led.sh
+
+echo "P4wnP1: Loading config ..."
+source $wdir/boot/init_config.sh
+
+# Create bash script which could be altered from /home/pi/.profile
+touch /tmp/profile.sh
+echo "#!/bin/bash" >> /tmp/profile.sh
+echo $(declare -p ledtrigger | cut -d" " -f3) >> /tmp/profile.sh
+declare -f led_blink >> /tmp/profile.sh
+declare -f onLogin >> /tmp/profile.sh
+chown pi:pi /tmp/profile.sh
+
+echo "P4wnP1: Initializing USB gadget ..."
+source $wdir/boot/init_usb.sh
+init_usb
+
+echo "P4wnP1: Checking for WiFi capabilities ..."
+source $wdir/boot/init_wifi.sh
+check_wifi
+if $WIFI; then
+	echo "P4wnP1: Seems WiFi module is present !"
+	# start ACCESS POINT if needed
+	if $WIFI_ACCESSPOINT; then
+		start_wifi_accesspoint
+	fi
+fi
+
+detect_usb_hostmode # creates OTG_MODE=true if P4wnP1 is in OTG mode
+
+# early out if P4wnP1 is used in OTG mode
+if $OTG_MODE; then
+	echo "As P4wnP1 is detected to run in Host (interactive) mode, we abort device setup now!"
+	exit
+else
+	echo "P4wnP1: ... USB gadget initialized"
+fi
+
+# check if ethernet over USB should be used
+if $USB_RNDIS || $USB_ECM; then 
+	USB_ETHERNET=true 
+fi
+
+# change hostname to make P4wnP1 resolveable on "name.local"
+if $WIFI || $USB_ETHERNET; then
+	hostname="MAME82-P4WNP1"
+
+	hostname $hostname
+	echo $hostname > /etc/hostname
+
+	# add to /etc/hosts
+	if ! grep -q -E "^127\.0\.0\.1 $hostname\$" /etc/hosts; then
+	        echo "127.0.0.1 $hostname" >> /etc/hosts
+	fi
+fi
+
+
+
+# if ethernet over USB is in use, detect active interface and start DHCP (all as background job)
+if $USB_ETHERNET; then
+	echo "P4wnP1: Initializing Ethernet over USB..."
+	source $wdir/boot/init_usb_ethernet.sh
+	(
+		detect_active_interface
+
+		if [ "$active_interface" != "none" ]; then 
+			create_DHCP_config
+			dnsmasq -C /tmp/dnsmasq_usb_eth.conf
+
+			# callback onNetworkUp() of payload script
+			declare -f onNetworkUp > /dev/null && onNetworkUp
+
+			# wait for client to receive DHCP lease
+			target_ip=""
+			while [ "$target_ip" == "" ]; do
+				target_ip=$(cat /tmp/dnsmasq.leases | cut -d" " -f3)
+				target_name=$(cat /tmp/dnsmasq.leases | awk '{print $4}')
+				sleep 0.2
+			done
+
+			# callback onNetworkGotIP() of payload script 
+			declare -f onTargetGotIP > /dev/null && onTargetGotIP
+
+		fi
+	)&
+fi
+
+if $USE_HID; then
+	# import keyboard functions
+	source $wdir/boot/init_hid_keyboard.sh
+
+	# if HID keyboard should be tested for readyness, do it (triggers "onKeyboardUp" callback of payload)
+	if $HID_KEYBOARD_TEST; then
+#		detect_HID_keyboard&
+
+		(
+		        echo "Waiting for HID keyboard to be usable..."
+			# blocking read of LED status
+			python -c "with open('/dev/hidg0','rb') as f:  print ord(f.read(1))"
+			# fire 'onKeyboardUp' after read has succeeded
+			declare -f onKeyboardUp > /dev/null && onKeyboardUp
+		)&
+	fi
+fi
+
+# trigger callback for on boot finished
+#declare -f onBootFinished > /dev/null && onBootFinished # run only once
+
