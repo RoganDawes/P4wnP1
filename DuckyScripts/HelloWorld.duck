@@ -1,6 +1,7 @@
-GUR r
+GUI r
 DELAY 500
-notepad.exe
+STRING notepad.exe
+ENTER
 DELAY 1000
 STRING Hello World
 ENTER
