@@ -51,6 +51,8 @@ if ! grep -q -E "Raspbian.*jessie" /etc/os-release ; then
 fi
 echo "...[pass] Pi seems to be running Raspbian Jessie"
 
+echo "Backing up resolv.conf"
+sudo cp /etc/resolv.conf /tmp/resolv.conf
 
 echo "Installing needed packages..."
 sudo apt-get update
@@ -70,7 +72,9 @@ fi
 #		$ sudo bash -c "cat /etc/resolv.conf > /tmp/backup"
 #	and restore here with
 #		$ sudo bash -c "cat /tmp/backup > /etc/resolv.conf"
-sudo bash -c "echo nameserver 8.8.8.8 > /etc/resolv.conf"
+sudo bash -c "cat /tmp/resolv.conf > /etc/resolv.conf"
+# append 8.8.8.8 as fallback secondary dns
+sudo bash -c "echo nameserver 8.8.8.8 >> /etc/resolv.conf"
 
 # install pycrypto
 echo "Installing needed python additions..."
