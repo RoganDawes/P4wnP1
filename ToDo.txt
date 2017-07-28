@@ -1,0 +1,20 @@
+1) fix issues in duckencoder.py 
+
+flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics
+
+./hidtools/backdoor/DuckEncoder.py:190:43: F821 undefined name 'key_entry'
+			print "Error: No keycode entry for " + key_entry
+                                          ^
+
+./hidtools/backdoor/DuckEncoder.py:392:17: F821 undefined name 'parseScriptLine'
+						result += parseScriptLine(lastLine, keyProp, langProp)
+                ^
+                
+2) get rid of doubled duckencoder (symlink the submodule or add ./duckencoder to pythons module path)
+
+3) Add option to change AP name
+
+4) Add menue driven lagunage selection
+
+5) Add filesystem browsing commands for target (analog to local command lcd, lpwd, lls) --> preparation for file transfer
+
