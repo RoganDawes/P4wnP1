@@ -42,7 +42,7 @@ The Responder.py version is a slightly modified one, allowing to respond probe r
 ### What's the difference between this and a ordinary BadUSB ? 
 
 A really good question. Karsten Nohl was the first using the term "BadUSB". What he described (or showed) was that ordinary commercial USB devices could be reprogrammed to make them act differently. Thus it was possible to mod a normal USB flashdrive (with PHISON controller) into an USB keyboard, running keyboard attacks. But the concept wasn't all about keyboards. In fact one could reprogram a vulnerable USB device to be everything, as long as it is defined in the USB specs (and one is able to reverse and modify a firmware based on an Intel 8051 derivate).
-So the more question should be: "What's the difference between this and an ordinary RubberDucky attack ?"
+So the more precise question should be: "What's the difference between this and an ordinary RubberDucky attack ?"
 
 ### What's the difference between this and an ordinary RubberDucky attack ?
 The backdoor payload does the same like a RubberDucky attack. The difference is that you can launch keyboard attacks from a WiFi based custom SSH shell on demand. The target sees only two HID devices, no other USB hardware.
@@ -53,3 +53,5 @@ To be more precise:
 The shell which spawns using the `shell` command doesn't use a network connection, a serial port or any othe communication device. It is based on a pure Human Interface Device. Now try to explain your firewall to block this communication channel (this isn't socket based). Or try to explain your endpoint protection to block USB HID devices and say goodbye to all kind of controllers using this standard. I guess the difference becomes clear!
 So to carry out pure keyboard attacks, this kind of "covert channel" isn't needed, you can run them as soon as you SSH'd into P4wnP1 backdoor interface. But once the covert channel is up after issuing `FireStage1` there should be no need to run further keyboard attacks, as long as you know what you're doing. The input to the shell (and other spawned processes) is tunneled through the HID channel.
 
+### Where is the code for the client side payload ?
+Here: https://github.com/mame82/P4wnP1_HID_backdoor_client
