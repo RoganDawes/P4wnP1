@@ -659,7 +659,73 @@ Use "help FireStage1" to get more details.
 	  be, br, ca, ch, de, dk, es, fi, fr, gb, hr, it,
 	  no, pt, ru, si, sv, tr, us
 	'''
-		print self.duckencoder.setLanguage(line.lower())
+		singleprint = False
+		if len(line) >  0:
+			self.duckencoder.setLanguage(line.lower())
+			singleprint =  True
+		
+		current_language = self.duckencoder.getLanguage()
+		# fetch possible languages
+		hasChosen =  False
+		available_langs = [lang.replace(".properties",  "") for lang in self.fs.ls(self.config["PATH_LANGUAGES"]) if lang != "keyboard.properties"]
+		per_line = 8
+		langNum =  0
+		
+		singleprint = False
+		if len(line) > 0 and line.lower() in available_langs:
+			self.duckencoder.setLanguage(line.lower())
+			singleprint =  True
+		
+		
+		while not hasChosen:
+			# print available languages
+			print "Choose language by number or name:"
+			print "================================\n"
+			index = 0
+			for i in range(0, len(available_langs), per_line):
+				line =  ""
+				for j in range(per_line):
+					index = i + j
+					if index >= len(available_langs):
+						break
+					if available_langs[index] ==  current_language:
+						line += "[{0}:{1}]\t".format(index,  available_langs[index])
+					else:
+						line += "{0}:{1}  \t".format(index,  available_langs[index])
+				print line
+
+			if singleprint:
+				break
+
+			given = raw_input("Your selection or 'x' to abort: ")
+			if given == "x":
+				print "abort ..."
+				return
+			# try to choose by name
+			if given in available_langs:
+				langNum =  available_langs.index(given)
+				hasChosen =  True
+				break		
+			
+			# try to choose by number
+			try:
+				langNum = int(given)
+				if langNum >= 0 and langNum < len(available_langs):
+					hasChosen =  True
+					break
+				else:
+					print "Invalid input..."
+					continue						
+			except ValueError:
+				print "Invalid input..."
+				continue
+		
+		if hasChosen:
+			print self.duckencoder.setLanguage(available_langs[langNum])
+		else:
+			return			
+		
+		
 		
 	def do_GetKeyboardLanguage(self, line):
 		'''

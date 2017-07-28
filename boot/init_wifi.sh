@@ -44,7 +44,7 @@ function generate_hostapd_conf()
 		driver=nl80211
 
 		# This is the name of the network
-		ssid=P4wnP1
+		ssid=$WIFI_ACCESSPOINT_NAME
 
 		# Use the 2.4GHz band
 		hw_mode=g
