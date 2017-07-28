@@ -1,7 +1,8 @@
 #!/usr/bin/python
-import sys
 import getopt
 import os
+import sys
+import time
 
 class DuckEncoder:
 	@staticmethod
