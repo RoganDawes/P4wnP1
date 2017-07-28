@@ -33,6 +33,7 @@ I'm doing this on Kali Linux, most other distros should be fine, too (I'm workin
 So this should bring up a new network interface on your box, which in my case is called `usb0` and has to be enabled with `ifconfig usb0 up`. The problem is, that the Pi runs a DHCP client on títs internal interface, waiting to receive a DHCP lease with an IP to use. As this lease will never be sent (as long as you haven't configured a DHCP server on usb0). We don't know the IP of the Pi. You could attach an HDMI monitor and the Pi will print out the IP used. But as promised, we do it in my way and that is headless.
 Now that the Pi isn't able too receive a DHCP lease, it chooses its own IP with a process called APIPA. I don't want to explain everything here, but one part of APIPA is important: Before the Pi chooses its IP, it has to check if any other host is using it already. This is done via ARP request. So if we sniff on our `usb0` interface, shortly after bringing it up, we should see an ARP request. To fecth this request, I personally use tshark, but every other sniffer should be fine, as long as you bring it up fast enough. So instead of running only `ifconfig usb0 up` we do the following.
 `ifconfig usb0 up && thshark -i usb0`
+
 8. Watch the tshark output, till you see an ARP request with an IP (who has 169.254.241.194 in my case)
 9. Stop tshark with `CTRL + C` and grab a copy of the IP.
 10. Configure your `usb0` interface to reside in the same subnet, I choose `169.254.241.1` and thus run the following command:
@@ -41,14 +42,17 @@ Now that the Pi isn't able too receive a DHCP lease, it chooses its own IP with 
 12. If everything goes fine, you should now be able to login with `ssh pi@169.254.241.194`
 
 Two more things left. You have to configure your Kali box to allow outbound masquerading on your internet interface (eth0 in my case), like this:
+
 13. `iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE` to enable masquerading (don't forget to replace eth0 with your internet interface)
 14. `echo 1 > /proc/sys/net/ipv4/ip_forward` to enable kernel based routing on the Kali machine
 
 Now KALI should be ready to root out traffic on its internet interface, but the Pi doesn't need to know who is the rooter, so we tell him. From the SSH session on the Pi run:
+
 15. `route add -net default gw 169.254.241.1` (here the address you configured on your usb interface is needed
 16. At this point raspbian should be able to reach the internet, test this with something like `ping 8.8.8.8`
 
 The last thing to do is to tell the Pi, how to resolve DNS names, with:
+
 17. `echo nameserver 8.8.8.8 > /etc/resolv.conf` where 8.8.8.8 is a google DNS which you could change according to your needs
 18. The Pi should be online and able to resolve DNS names, test with `ping www.google.de`
 
