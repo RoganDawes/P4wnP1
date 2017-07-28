@@ -106,9 +106,12 @@ HID covert channel backdoor (Pi Zero W only)
 
 Video demo
 ----------
-Yeah, this would be something to show off. As I'm not a video producer nothing is here. So help is appreciated. 
 
-**@Seytonic**... yes ? no ? maybe ???
+[![P4wnP1 HID demo youtube](https://img.youtube.com/vi/Pft7voW5ui8/0.jpg)](https://www.youtube.com/watch?v=Pft7voW5ui8)
+
+The video is produced by @Seytonic, you should check out his youtube channel with hacking related tutorials and various projects, if you're interested in more stuff like this (link in credits).
+
+**@Seytonic** thanks for the great tutorial
 
 HID backdoor features
 ----------------------
@@ -277,13 +280,14 @@ So here we are now. The **vulnerable product has been the Oracle Java JRE and JD
 Credits to
 ==========
 
+-    Seytonic (youtube channel on hacking and hardware projects: [Seytonic]
 -    Rogan Dawes (sensepost, core developer of Universal Serial Abuse - USaBUSe): [USaBUSe]
 -    Samy Kamkar: [PoisonTap]
 -    Rob ‘MUBIX’ Fuller: [“Snagging creds from locked machines”] and MUBIX at [github]
 -    Laurent Gaffie (lgandx): [Responder]
 -    Darren Kitchen (hak5darren): [DuckEncoder], time to implement a WiFi capable successor for BashBunny ;-)
 
-
+  [Seytonic]: https://www.youtube.com/channel/UCW6xlqxSY3gGur4PkGPEUeA
   [PoisonTap]: https://github.com/samyk/poisontap
   [“Snagging creds from locked machines”]: https://room362.com/post/2016/snagging-creds-from-locked-machines/
   [github]: https://github.com/mubix
