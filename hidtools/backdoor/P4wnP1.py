@@ -70,8 +70,6 @@ class P4wnP1(cmd.Cmd):
 
 		self.duckencoder = duckencoder
 		
-		self.fs =  FileSystem()
-
 		# register Listener for LinkLayer signals to upper layers (to receive LinkLayer connection events)
 		dispatcher.connect(self.signale_handle_transport_layer, sender="TransportLayerUp")
 		self.setPrompt(False, False)
@@ -667,7 +665,7 @@ Use "help FireStage1" to get more details.
 		current_language = self.duckencoder.getLanguage()
 		# fetch possible languages
 		hasChosen =  False
-		available_langs = [lang.replace(".properties",  "") for lang in self.fs.ls(self.config["PATH_LANGUAGES"]) if lang != "keyboard.properties"]
+		available_langs = [lang.replace(".properties",  "") for lang in FileSystem.ls(self.config["PATH_LANGUAGES"]) if lang != "keyboard.properties"]
 		per_line = 8
 		langNum =  0
 		
@@ -775,11 +773,11 @@ Use "help FireStage1" to get more details.
 	def do_SendDuckyScript(self, line):
 		scriptpath = self.config["PATH_DUCKYSCRIPT"] +  "/" +  line
 		
-		if not self.fs.fileExists(scriptpath):
+		if not FileSystem.fileExists(scriptpath):
 			print "No script given or given script not found"
 			hasChosen =  False
 			scriptNum =  0
-			available_scripts =  self.fs.ls(self.config["PATH_DUCKYSCRIPT"])
+			available_scripts =  FileSystem.ls(self.config["PATH_DUCKYSCRIPT"])
 			while not hasChosen:
 				# print out available scripts
 				print "Choose script by number or name:"
@@ -823,18 +821,56 @@ Use "help FireStage1" to get more details.
 		self.duckencoder.outhidDuckyScript(script)
 		
 	def do_lcd(self,  line):
-		print self.fs.cd(line)
+		print FileSystem.cd(line)
 		
 	def do_lpwd(self,  line):
-		print self.fs.pwd()
+		print FileSystem.pwd()
 		
 	def do_lls(self,  line):
 		if len(line.strip()) >  0:
-			res = self.fs.ls_native2(line.split(" "))
+			res = FileSystem.ls_native2(line.split(" "))
 		else:
-			res = self.fs.ls_native2()
+			res = FileSystem.ls_native2()
 		for l in res:
 			print l
+			
+	def client_call_create_file_channel(self, remote_filename, remote_file_accessmode, remote_file_target):
+		# remote_file_target: 0=disc, 1=in_memory
+		method_args = struct.pack("!{0}sx{1}sxB".format(len(remote_filename), len(remote_file_accessmode)), remote_filename, remote_file_accessmode, remote_file_target)
+			
+		# we could use the create proc handler
+		proc = self.client.callMethod("core_create_filechannel", method_args, self.handler_client_create_file_channel, error_handler=self.handler_client_create_file_channel_error, waitForResult = True, deliverResult = True)
+		return proc
+
+	def handler_client_create_file_channel_error(self, response):
+		return response
+
+	def handler_client_create_file_channel(self, response):
+		#proc_id, uses_channels, ch_stdin, ch_stdout, ch_stderr = struct.unpack("!IBIII", response)
+		return response
+
+		
+	def do_upload(self, line):
+		args = line.split(" ")
+		target_path = ""
+		source_path = ""
+		if len(args) == 0 or len(line) == 0:
+			print "you need to provide a file source"
+			return
+		elif len(args) == 1:
+			source_path = args[0].strip()
+			target_path = FileSystem.getFileName(source_path)
+		elif len(args) == 2:
+			source_path = args[0].strip()
+			target_path = args[1].strip()
+		else:
+			print "wrong argument count"
+			return
+			
+		print "Uploading local file {0} to remote file {1}".format(source_path, target_path)
+		
+		# request filechannel for upload
+		result = self.client_call_create_file_channel(target_path, "wb", 0) # open remote file in write mode, with target=0 (disc)
 
 if __name__ == "__main__":
 	rundir = os.path.dirname(sys.argv[0])

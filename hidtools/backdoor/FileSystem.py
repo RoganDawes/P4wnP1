@@ -5,10 +5,12 @@ class FileSystem:
     def __init__(self):
         pass
     
-    def pwd(self):
+    @staticmethod
+    def pwd():
         return os.getcwd()
     
-    def cd(self,  tdir):
+    @staticmethod
+    def cd(tdir):
         try:
             os.chdir(tdir)
         except OSError:
@@ -16,7 +18,8 @@ class FileSystem:
             print ex
         return os.getcwd()    
 
-    def ls(self,  tdir = "."):
+    @staticmethod
+    def ls(tdir = "."):
         res =  ""
         try:
             res = os.listdir(tdir)
@@ -24,12 +27,14 @@ class FileSystem:
             res =  sys.exc_value
         return res
     
-    def ls_native(self,  tdir = ".",  args = []):
+    @staticmethod
+    def ls_native(tdir = ".",  args = []):
         res =  ""
         import subprocess
         subprocess.call(["ls"]+args)
     
-    def ls_native2(self, args = []):
+    @staticmethod
+    def ls_native2(args = []):
         res =  ""
         from subprocess import PIPE, Popen
         
@@ -38,13 +43,15 @@ class FileSystem:
                    close_fds=True)
         return [fn.rstrip("\n") for fn in pls.stdout.readlines()] + [fn.rstrip("\n") for fn in pls.stderr.readlines()]
     
-    def readFile(self, filename):
+    @staticmethod
+    def readFile(filename):
         data = ""
         with open(filename, "rb") as f:
             data =  f.read()
         return data
     
-    def readFileChunks(self, filename, chunknum, chunksize=10000):
+    @staticmethod
+    def readFileChunks(filename, chunknum, chunksize=10000):
         pos = chunknum * chunksize
         data =  ""
         with open(filename, "rb") as f:
@@ -52,19 +59,27 @@ class FileSystem:
             data = f.read(chunksize)
         return data
     
-    def writeFile(self, filename, data=""):
+    @staticmethod
+    def writeFile(filename, data=""):
         with open(filename, "wb") as f:
             f.write(data)
     
-    def appendFile(self, filename, data=""):
+    @staticmethod
+    def appendFile(filename, data=""):
         with open(filename, "ab") as f:
             f.write(data)
     
-    def fileExists(self, filename):
+    @staticmethod
+    def fileExists(filename):
         return os.path.isfile(filename)
 
-    def delFile(self, filename):
+    @staticmethod
+    def delFile(filename):
         os.remove(filename)
+        
+    @staticmethod
+    def getFileName(path):
+        return os.path.basename(path)
     
 #fs =  FileSystem()
 #fs.writeFile("test", '\x00'*10)

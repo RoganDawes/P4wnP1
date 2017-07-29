@@ -98,3 +98,29 @@ class Channel(object):
         else:
             return False
 
+class FileChannel(Channel):
+    '''
+    Implementation of a channel dedicated to File Transfer (upload + download)
+    '''
+    
+    READ_CUNK_SIZE = 30000
+    FILEMODE_READ = "rb"
+    FILEMODE_WRITE = "wb"
+    FILEMODE_READWRITE = "r+b"
+    FILEMODE_APPEND = "ab"
+    
+    def __init__(self, id, encoding,  fileName, fileMode):
+        _type = Channel.TYPE_BIDIRECTIONAL
+        if fileMode == FileChannel.FILEMODE_READ:
+            _type = Channel.TYPE_OUT
+        elif fileMode == FileChannel.FILEMODE_WRITE or fileMode == FileChannel.FILEMODE_APPEND:
+            _type = Channel.TYPE_IN
+            
+        # before creating the channel, FileAccess is checked and an error thrown if needed
+        
+            
+        Channel.__init__(self, id, _type, encoding)
+        self.filename = fileName
+        self.filemode = fileMode
+        
+    
