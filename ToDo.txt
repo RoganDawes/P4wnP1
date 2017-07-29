@@ -17,4 +17,28 @@ flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics
 4) [DONE] Add menue driven lagunage selection, "SetKeyboardLanguage without parametes gives a menu
 
 5) [Open] Add filesystem browsing commands for target (analog to local command lcd, lpwd, lls) --> preparation for file transfer
+	- [partially] FileSystem class for payload created: https://github.com/mame82/P4wnP1_HID_backdoor_client/blob/master/P4wnP1/FileSystem.cs
+	- [open] Create payload functions to acces filesystem commands
+	- [open] create callers and handlers for the remote functions on server
 
+6) [open] refine backdoor payload, to alter language setting of the backdoor server based on language setting of payload (usability)
+
+7) [open] Rework duckencoder.py: https://github.com/mame82/duckencoder.py/pull/2 (automated testing has to be deployed)
+
+Future:
+
+8) Integrate file transfer
+	- Write classes for asynchronous, thread based file transfer channels
+	- Implement protocol methods for control channel
+	- needed capabilities: 
+		UploadRAM (uupload file to memory only, to be able to run in memory PS scripts for example)
+		UploadDisc
+		Download
+		
+9) Integrate HID tunneled socket communication
+	- MileStone far, far awy
+	- Listener sockets + connect sockets	
+
+10) Socks4a / Socks5
+	- after basic socket integration to have a multiplexed pivot channel
+	
