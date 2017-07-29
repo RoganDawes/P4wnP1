@@ -42,3 +42,10 @@ Future:
 10) Socks4a / Socks5
 	- after basic socket integration to have a multiplexed pivot channel
 	
+11) Refine USB Mass Storage Support
+	- make it configurable (allow CD-Rom emulation with mounted iso)
+	- mount flashdrive image to P4wnP1 local file system, when not used by payload
+	
+12) Allow changing USB modes, whil payload is running
+- needs full rework of the payload mechanism (callbacks would have to be called multiple times, maybe iterative payload design instead)
+- example use case: Run network attack, save captured data to internally mounted USB flashdrive image, reinit USB stack to mimic a flashdrive and present the captured data
