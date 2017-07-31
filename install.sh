@@ -208,7 +208,7 @@ echo "          WiFi name:    P4wnP1"
 echo "          Key:          MaMe82-P4wnP1"
 echo "          SSH access:    pi@172.24.0.1 (password: raspberry)"
 echo
-echo "Got to your installation directory. From there you can alter the settings in the file 'setup.cfg',"
+echo "Go to your installation directory. From there you can alter the settings in the file 'setup.cfg',"
 echo "like payload and language selection"
 echo 
 echo "If you're using a Pi Zero W, give the HID backdoor a try ;-)"
