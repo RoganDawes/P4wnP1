@@ -5,9 +5,9 @@
 #       Author: Marcus Mengs (MaMe82)
 #
 # Notes:
-#       - install.sh should be ran ONCE
+#       - install.sh should only be run ONCE
 #       - work in progress (contains possible errors and typos)
-#	- the script needs Internet connection to install the required packages
+#	- the script needs an Internet connection to install the required packages
 #	- if /home/pi/.profile is patched correctly, responder output is shown via HDMI while connected to target
 #
 # ToDo
