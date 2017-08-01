@@ -92,6 +92,9 @@ This payload extends the "Snagging creds from locked machine" approach, presente
 ### Video demo
 
 I'm still no video producer, so maybe somebody feels called upon to do a demo.
+Here's my (sh**ty) attempt:
+[![P4wnP1 LockPicker demo youtube](https://img.youtube.com/vi/7fCPsb6quKc/0.jpg)](https://www.youtube.com/watch?v=7fCPsb6quKc)
+
 
 ### Attack chain (short summary):
 1. The USB network interface of P4wnP1 is used to bring up a DHCP which provides its configuration to the target client.
