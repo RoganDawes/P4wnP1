@@ -1,11 +1,11 @@
 #!/bin/bash
 #
 # P4wnP1 (PiZero IPv4 traffic interceptor and USB hash stealer)
-# stetup script
+# setup script
 #       Author: Marcus Mengs (MaMe82)
 #
 # Notes:
-#       - setup_p4wnp1.sh should be ran ONCE
+#       - install.sh should be ran ONCE
 #       - work in progress (contains possible errors and typos)
 #	- the script needs Internet connection to install the required packages
 #	- if /home/pi/.profile is patched correctly, responder output is shown via HDMI while connected to target
