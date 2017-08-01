@@ -24,6 +24,7 @@ Introduction
 
 Since the initial release in February 2017, P4wnP1 has come along way. 
 Today advanced features are merged back into the master branch, among others:
+-   the **Windows LockPicker** (unlock Windows boxes with weak passwords, fully automated by attaching P4wnP1)
 -   the **HID covert channel backdoor** (Get remote shell access on air gapped Windows targets tunneled only through HID devices, relayed to a WiFi hotspot with SSH access with a Pi Zero W. The target doesn't see a network adapter, serial or any other communication device.)
 -   the **HID covert channel frontdoor** (Get access to a python shell on P4wnP1 from a restricted Windows host, tunneled through a raw HID device with low footprint. The target doesn't see a network adapter, serial or any other communication device.)
 -	refined USB, **modular USB setup**
@@ -84,7 +85,9 @@ Advanced payload features
 Windows LockPicker
 ==================
 
-This payload extends the "Snagging creds from locked machine" approach, presented by Mubix (see credits), to its obvious successor.
+This payload extends the "Snagging creds from locked machine" approach, presented by Mubix (see credits), to its obvious successor: 
+
+**P4wnP1 LockPicker cracks grabbed hashes and unlocks the target on success, using its keyboard capabilities.** This happens fully automated, without further user interaction.
 
 ### Video demo
 
