@@ -26,6 +26,13 @@ class Client(object):
         self.__os_info = ""
         self.__ps_version = ""
         self.__next_method_id = 1
+        # abort all pending method with error
+        if hasattr(self,  "_Client__pending_methods"):
+            for method_id in self.__pending_methods.keys(): # we copy the dictionary keys, as processed methods get removed by another thread while iterating
+                errstr =  "Method aborted, because client disconnected"
+                err_indicator =  1
+                response = struct.pack("!IB{0}sx".format(len(errstr)), method_id, err_indicator, errstr)
+                self.deliverMethodResponse(response)
         self.__pending_methods = {}
         self.__processes = {}
         self.__channels = {}
@@ -66,8 +73,8 @@ class Client(object):
         if not link == self.__hasLink:
             Client.print_debug("Link state changed: {0}".format(link))
             if not link:
-                self.reset_state()
                 self.setConnected(False)
+                self.reset_state() # reset state sets the internal connection state to false, if issued before setConnected(false) there wouldn't be a change in connection state and thus callback aren't issued
                 #self.onDisconnect()
         self.__hasLink = link
 
@@ -139,7 +146,8 @@ class Client(object):
 
             # try to fetch error handler
             if method.error_handler:
-                method.handler_result = method.error_handler(errmsg)
+                #method.handler_result = method.error_handler(errmsg)
+                method.handler_result = (False, method.error_handler(errmsg)) # return a list, boolean indicates error, second entry is result
             else:
                 Client.print_debug("Method '{0}' with call ID {1} failed, but no error handler defined. Error Message: {1}".format(method.name, errmsg))
         else:
@@ -147,7 +155,7 @@ class Client(object):
             Client.print_debug("Response for method '{0}' with call ID {1} received. Method succeeded, delivering result to handler: {3}".format(method.name, method.id, success_error, repr(response)))
             # try to fetch error handler
             if method.handler:
-                method.handler_result = method.handler(response)
+                method.handler_result = (True, method.handler(response)) # return a list, boolean indicates success, second entry is result
             else:
                 Client.print_debug("Method '{0}' with call ID {1} succeeded, but no handler defined. Method result: {1}".format(method.name, response))
 

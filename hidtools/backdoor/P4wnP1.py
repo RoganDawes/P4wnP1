@@ -13,6 +13,7 @@ from threading import Thread, Condition, Event
 from DuckEncoder import DuckEncoder
 from Config import Config
 from StageHelper import StageHelper
+from StructHelper import StructHelper
 from Channel import Channel
 from Client import *
 from FileSystem import FileSystem
@@ -71,7 +72,7 @@ class P4wnP1(cmd.Cmd):
 		self.duckencoder = duckencoder
 		
 		# register Listener for LinkLayer signals to upper layers (to receive LinkLayer connection events)
-		dispatcher.connect(self.signale_handle_transport_layer, sender="TransportLayerUp")
+		dispatcher.connect(self.signal_handler_transport_layer, sender="TransportLayerUp")
 		self.setPrompt(False, False)
 		cmd.Cmd.__init__(self)
 		
@@ -299,7 +300,7 @@ Use "help FireStage1" to get more details.
 
 
 	# loose definition, data argument has to be produced by LinkLayer
-	def signale_handle_transport_layer(self, signal, data):
+	def signal_handler_transport_layer(self, signal, data):
 		P4wnP1.print_debug("TransportLayer signal: {0}".format(signal))
 
 		if signal == "TransportLayerClientConnectedLinkLayer":
@@ -412,9 +413,12 @@ Use "help FireStage1" to get more details.
 		args=""
 		method_args = struct.pack("!B{0}sx{1}sx".format(len(shell), len(args)), 1, shell, args) # create null terminated strings from process name and args
 		# we could use the create proc handler
-		proc = self.client.callMethod("core_create_proc", method_args, self.handler_client_create_shell_proc, waitForResult = True, deliverResult = True)
-		if proc:
-			self.interactWithClientProcess(proc.id)
+		no_error, proc = self.client.callMethod("core_create_proc", method_args, self.handler_client_create_shell_proc, waitForResult = True, deliverResult = True)
+		if no_error:
+			if proc:
+				self.interactWithClientProcess(proc.id)
+		else:
+			self.print_reprompt("Trying to create the process resulted in error: {0}".format(proc))
 
 	def client_call_create_proc(self, filename, args, use_channels = True, waitForResult = False):
 		# build arguments: [String] ProcFilename + [String] ProcArgs
@@ -437,6 +441,9 @@ Use "help FireStage1" to get more details.
 		self.client.callMethod("core_destroy_channel", struct.pack("!I", channel.id), self.handler_client_destroy_channel, waitForResult = False)	
 		
 	# HANDLER
+	def handler_pass_through_result(self, response):
+		return response
+	
 	def handler_client_echotest(self, response):
 		print response
 
@@ -834,22 +841,38 @@ Use "help FireStage1" to get more details.
 		for l in res:
 			print l
 			
-	def client_call_create_file_channel(self, remote_filename, remote_file_accessmode, remote_file_target):
+	def client_call_create_file_channel(self, remote_filename, remote_file_accessmode, remote_file_target, force=False):
 		# remote_file_target: 0=disc, 1=in_memory
-		method_args = struct.pack("!{0}sx{1}sxB".format(len(remote_filename), len(remote_file_accessmode)), remote_filename, remote_file_accessmode, remote_file_target)
+		force_val = 0
+		if force:
+			force_val = 1
+		method_args = struct.pack("!{0}sx{1}sxBB".format(len(remote_filename), len(remote_file_accessmode)), remote_filename, remote_file_accessmode, remote_file_target, force_val)
 			
 		# we could use the create proc handler
-		proc = self.client.callMethod("core_create_filechannel", method_args, self.handler_client_create_file_channel, error_handler=self.handler_client_create_file_channel_error, waitForResult = True, deliverResult = True)
-		return proc
+		return self.client.callMethod("core_create_filechannel", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
+	
+	def client_call_FS_command(self, command,  command_args=""):
+		# remote_file_target: 0=disc, 1=in_memory
+		method_args = struct.pack("!{0}sx{1}sx".format(len(command), len(command_args)), command,  command_args)
+			
+		# we could use the create proc handler
+		no_err, result = self.client.callMethod("core_call_fs_command", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
+		result, _ =  StructHelper.extractNullTerminatedString(result)
+		if no_err:
+			print result
+		else:
+			print "Remote file system error: {0}".format(result)
 
-	def handler_client_create_file_channel_error(self, response):
-		return response
-
-	def handler_client_create_file_channel(self, response):
-		#proc_id, uses_channels, ch_stdin, ch_stdout, ch_stderr = struct.unpack("!IBIII", response)
-		return response
-
+	
+	def do_pwd(self, line):
+		self.client_call_FS_command("pwd")
 		
+	def do_ls(self, line):
+		self.client_call_FS_command("ls", line)
+		
+	def do_cd(self, line):
+		self.client_call_FS_command("cd", line)			
+	
 	def do_upload(self, line):
 		args = line.split(" ")
 		target_path = ""
@@ -870,7 +893,19 @@ Use "help FireStage1" to get more details.
 		print "Uploading local file {0} to remote file {1}".format(source_path, target_path)
 		
 		# request filechannel for upload
-		result = self.client_call_create_file_channel(target_path, "wb", 0) # open remote file in write mode, with target=0 (disc)
+		success, result = self.client_call_create_file_channel(target_path, "wb", 0, False) # open remote file in write mode, with target=0 (disc), don't force overwrite
+		if success:
+			print "Remote FileChannel created, ID: {0}".format(struct.unpack("!I", result)[0])
+			
+			# create local file channel, using the ID of the remote file channel
+			
+			# send channel hasLink ctrlMsg
+			
+			# read local file in chunks and write it to the local file channel <-- should be handled by process thread
+			
+			# send ChannelClose CTRL_MSG (this should flush the remote file and close the handle, thus the same ctrl_msg could be used for transfer abort) <-- should be handled by process thread
+		else:
+			print "Upload Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
 
 if __name__ == "__main__":
 	rundir = os.path.dirname(sys.argv[0])
