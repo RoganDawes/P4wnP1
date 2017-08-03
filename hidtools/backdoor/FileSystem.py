@@ -1,6 +1,19 @@
 import os
 import sys
 
+class FileMode:
+    CreateNew = 1       # create a new file. If the file already exists, an exception will be thrown
+    Create = 2          # Create a new file. If the file already exists, it will be overwritten
+    Open = 3            # Open an existing file. If the file doesn't exist, an exception will be thrown
+    OpenOrCreate = 4    # Open an existing file. Create it if it doesnt exist.
+    Truncate = 5        # unused
+    Append = 6          # Opens the file if it exists and seeks to the end of the file, or creates a new file.
+    
+class FileAccess:
+    Read = 1
+    Write = 2
+    ReadWrite = 3 
+
 class FileSystem:
     def __init__(self):
         pass

@@ -14,9 +14,9 @@ from DuckEncoder import DuckEncoder
 from Config import Config
 from StageHelper import StageHelper
 from StructHelper import StructHelper
-from Channel import Channel
+from Channel import * 
 from Client import *
-from FileSystem import FileSystem
+from FileSystem import *
 
 class P4wnP1(cmd.Cmd):
 	"""
@@ -841,6 +841,8 @@ Use "help FireStage1" to get more details.
 		for l in res:
 			print l
 			
+
+	# REMOVE, obsolete
 	def client_call_create_file_channel(self, remote_filename, remote_file_accessmode, remote_file_target, force=False):
 		# remote_file_target: 0=disc, 1=in_memory
 		force_val = 0
@@ -850,6 +852,18 @@ Use "help FireStage1" to get more details.
 			
 		# we could use the create proc handler
 		return self.client.callMethod("core_create_filechannel", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
+	
+	def client_call_open_file(self, remote_filename, remote_filemode, remote_fileaccess):
+				
+		method_args = struct.pack("!{0}sxBB".format(len(remote_filename)), remote_filename, remote_filemode, remote_fileaccess)
+			
+		# we could use the create proc handler
+		return self.client.callMethod("core_fs_open_file", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
+	
+	def client_call_open_stream_channel(self, stream_id):
+		method_args = struct.pack("!i", stream_id)
+		# we could use the create proc handler
+		return self.client.callMethod("core_open_stream_channel", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
 	
 	def client_call_FS_command(self, command,  command_args=""):
 		# remote_file_target: 0=disc, 1=in_memory
@@ -872,6 +886,28 @@ Use "help FireStage1" to get more details.
 		
 	def do_cd(self, line):
 		self.client_call_FS_command("cd", line)			
+
+	@staticmethod
+	def askYesNo(default_yes = False):
+		given = ""
+		valid =  False
+		while not valid:
+			if default_yes:
+				given = raw_input("(y)es / (n)o, default yes: ")
+				if not given:
+					given = "y"
+			else:
+				given = raw_input("(y)es / (n)o, default no: ")
+				if not given:
+					given = "n"
+				
+			if given.lower() in ["y", "yes"]:
+				return True
+			elif given.lower() in ["n", "no"]:
+				return False
+			else:
+				print "invalid input"
+		
 	
 	def do_upload(self, line):
 		args = line.split(" ")
@@ -892,20 +928,59 @@ Use "help FireStage1" to get more details.
 			
 		print "Uploading local file {0} to remote file {1}".format(source_path, target_path)
 		
-		# request filechannel for upload
-		success, result = self.client_call_create_file_channel(target_path, "wb", 0, False) # open remote file in write mode, with target=0 (disc), don't force overwrite
+		# Try to open remote file
+		success, result = self.client_call_open_file(remote_filename = target_path, 
+		                                            remote_filemode = FileMode.CreateNew, # don't overwrite 
+		                                            remote_fileaccess = FileAccess.Write)
+		stream_id = -1
 		if success:
-			print "Remote FileChannel created, ID: {0}".format(struct.unpack("!I", result)[0])
-			
-			# create local file channel, using the ID of the remote file channel
-			
-			# send channel hasLink ctrlMsg
-			
-			# read local file in chunks and write it to the local file channel <-- should be handled by process thread
-			
-			# send ChannelClose CTRL_MSG (this should flush the remote file and close the handle, thus the same ctrl_msg could be used for transfer abort) <-- should be handled by process thread
+			stream_id = struct.unpack("!i", result)[0] # signed int
+			print "Remote FileStream with ID '{0}' opened".format(stream_id)
+			print stream_id
 		else:
-			print "Upload Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
+			print "File open Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
+			print "Seems the target file already exists, access is forbidden or the path is invalid. Do you want to force overwrite?"
+			
+			overwrite = P4wnP1.askYesNo(default_yes=True)
+			if overwrite:
+				success, result = self.client_call_open_file(remote_filename = target_path, 
+							                             remote_filemode = FileMode.Create, # overwrite if exists
+							                            remote_fileaccess = FileAccess.Write) 
+				if success:
+					stream_id = struct.unpack('!i', result)[0] #signed int
+					print "Remote FileStream with ID '{0}' opened".format(stream_id)
+				else:
+					print "File open Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
+					return
+			else:
+				return
+		
+		# if we are here, file open succeeded and we request a channel for the filestream
+		stream_channel = None
+		success, result = self.client_call_open_stream_channel(stream_id)
+		if success:
+			channel_id = struct.unpack("!I", result)[0] # unsigned int
+			print "Opened stream channel with id {0}".format(channel_id)
+			
+			# bind stream to local StreamChannel object
+			stream_channel =  StreamChannel(channel_id, stream_id)
+			
+			# add channel to client
+			self.client.addChannel(stream_channel)
+			
+		else:
+			print "Open channel Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
+			
+			# ToDo: Remote stream should be destroyed
+			return
+		
+		# if here, we should have a valid stream_channel
+		# inform client that the channel has link
+		self.client_call_inform_channel_added(stream_channel)
+		
+		stream_channel.Write("Test")
+		stream_channel.Flush()
+		
 
 if __name__ == "__main__":
 	rundir = os.path.dirname(sys.argv[0])
