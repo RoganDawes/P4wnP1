@@ -33,6 +33,10 @@ class Client(object):
                 err_indicator =  1
                 response = struct.pack("!IB{0}sx".format(len(errstr)), method_id, err_indicator, errstr)
                 self.deliverMethodResponse(response)
+        # close all opened channels
+        if hasattr(self,  "_Client__channels"):
+            for channel in self.__channels.values():
+                channel.onClose() 
         self.__pending_methods = {}
         self.__processes = {}
         self.__channels = {}

