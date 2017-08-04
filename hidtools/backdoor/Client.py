@@ -179,12 +179,12 @@ class Client(object):
         self.__processes[proc.id] = proc
         
     def removeProc(self, proc_id):
-        if proc_id in self.__processes:
-            if proc_id in self.__processes:
-                proc =  self.__processes[proc_id]
-                self.removeChannel(proc.ch_stdin.id)
-                self.removeChannel(proc.ch_stderr.id)
-                self.removeChannel(proc.ch_stdout.id)
+        
+        #if proc_id in self.__processes:
+                #proc =  self.__processes[proc_id]
+                #self.removeChannel(proc.ch_stdin.id)
+                #self.removeChannel(proc.ch_stderr.id)
+                #self.removeChannel(proc.ch_stdout.id)
         
         del self.__processes[proc_id]
 
@@ -215,7 +215,8 @@ class Client(object):
             return None
         
     def removeChannel(self, channel_id):
-        ch =  self.getChannel(channel_id)
+        ch = self.getChannel(channel_id)
+        ch.onClose()
         if ch:
             if channel_id in self.__channels_in:
                 del self.__channels_in[channel_id]

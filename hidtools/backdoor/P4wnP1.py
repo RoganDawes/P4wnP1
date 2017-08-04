@@ -38,6 +38,8 @@ class P4wnP1(cmd.Cmd):
 	CTRL_MSG_FROM_CLIENT_RUN_METHOD = 6 # client tasks server to run a method
 	CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE = 7
 	CTRL_MSG_FROM_CLIENT_PROCESS_EXITED = 8
+	CTRL_MSG_FROM_CLIENT_CHANNEL_SHOULD_CLOSE = 9
+	CTRL_MSG_FROM_CLIENT_CHANNEL_CLOSED = 10
 
 	# message types from server (python) to client (powershell)
 	CTRL_MSG_FROM_SERVER_STAGE2_RESPONSE = 1000
@@ -47,6 +49,7 @@ class P4wnP1(cmd.Cmd):
 	#CTRL_MSG_FROM_SERVER_ADD_CHANNEL_RESPONSE = 1004
 	CTRL_MSG_FROM_SERVER_RUN_METHOD_RESPONSE = 1005 # response from a method ran on server
 	CTRL_MSG_FROM_SERVER_DESTROY = 1006 # response from a method ran on server
+	CTRL_MSG_FROM_SERVER_CLOSE_CHANNEL = 1007
 
 	def __init__(self, linklayer, transportlayer, config,  stage2 = "", duckencoder = None):
 		# state value to inform sub threads of running state
@@ -288,6 +291,16 @@ Use "help FireStage1" to get more details.
 						pass
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_PROCESS_EXITED:
 						self.onClientProcessExitted(payload)
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_CHANNEL_SHOULD_CLOSE:
+						channel_id = struct.unpack("!I", payload)[0]
+						self.print_reprompt("Client received channel close request for channel ID {0}!".format(channel_id))
+						self.client.removeChannel(channel_id)
+						# send back request to close remote channel, too
+						self.sendControlMessage(P4wnP1.CTRL_MSG_FROM_SERVER_CLOSE_CHANNEL, struct.pack("!I", channel_id))
+					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_CHANNEL_CLOSED:
+						channel_id = struct.unpack("!I", payload)[0]
+						self.print_reprompt("Server confirmed close of channel with ID {0}!".format(channel_id))
+					
 					else:
 						P4wnP1.print_debug("indata: Control channel, unknown control message type: {0}, payload: {1} ".format(msg_type, repr(payload)))
 
@@ -313,7 +326,6 @@ Use "help FireStage1" to get more details.
 			if data >= P4wnP1.CLIENT_TIMEOUT_MS:
 				self.print_reprompt("\nClient didn't respond for {0} seconds.".format(data/1000))
 				self.ll.restart_background()
-				#self.client.setConnected(False)
 				self.client.setLink(False)
 		elif signal == "TransportLayerWaitingForClient" or signal == "TransportLayerSendStream":
 			# ignore these events
@@ -980,6 +992,86 @@ Use "help FireStage1" to get more details.
 		
 		stream_channel.Write("Test")
 		stream_channel.Flush()
+		
+	def do_download(self, line):
+		args = line.split(" ")
+		target_path = ""
+		source_path = ""
+		if len(args) == 0 or len(line) == 0:
+			print "you need to provide a file source"
+			return
+		elif len(args) == 1:
+			source_path = args[0].strip()
+			target_path = FileSystem.getFileName(source_path)
+		elif len(args) == 2:
+			source_path = args[0].strip()
+			target_path = args[1].strip()
+		else:
+			print "wrong argument count"
+			return
+
+		print "Downloading remote file {0} to local file {1}".format(source_path, target_path)
+
+		# Try to open remote file
+		success, result = self.client_call_open_file(remote_filename = source_path, 
+		                                             remote_filemode = FileMode.Open, # don't overwrite 
+		                                            remote_fileaccess = FileAccess.Read)
+		stream_id = -1
+		if success:
+			stream_id = struct.unpack("!i", result)[0] # signed int
+			print "Remote FileStream with ID '{0}' opened".format(stream_id)
+			print stream_id
+		else:
+			print "File open Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
+			print "Seems the target file doesn't exist, Do you want to try to create it?"
+
+			overwrite = P4wnP1.askYesNo(default_yes=True)
+			if overwrite:
+				success, result = self.client_call_open_file(remote_filename = source_path, 
+				                                             remote_filemode = FileMode.OpenOrCreate, # overwrite if exists
+				                                                     remote_fileaccess = FileAccess.Read) 
+				if success:
+					stream_id = struct.unpack('!i', result)[0] #signed int
+					print "Remote FileStream with ID '{0}' opened".format(stream_id)
+				else:
+					print "File open Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
+					return
+			else:
+				return
+
+		# if we are here, file open succeeded and we request a channel for the filestream
+		stream_channel = None
+		success, result = self.client_call_open_stream_channel(stream_id)
+		if success:
+			channel_id = struct.unpack("!I", result)[0] # unsigned int
+			print "Opened stream channel with id {0}".format(channel_id)
+
+			# bind stream to local StreamChannel object
+			stream_channel =  StreamChannel(channel_id, stream_id)
+
+			# add channel to client
+			self.client.addChannel(stream_channel)
+
+		else:
+			print "Open channel Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
+
+			# ToDo: Remote stream should be destroyed
+			return
+
+		# if here, we should have a valid stream_channel
+		# inform client that the channel has link
+		self.client_call_inform_channel_added(stream_channel)
+
+		count = -1
+		while count != 0:
+			readen = stream_channel.Read(50)
+			count =  len(readen)
+			print "readtest, content:\n==================\n\n {0} ".format(readen)
+		
+		# close remote stream
+		
+		# ToDo: If file close isn't implemented, the file will be blocked till the client exits
+		# close remote file
 		
 
 if __name__ == "__main__":

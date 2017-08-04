@@ -55,10 +55,10 @@ class Channel(object):
 
     def readInput(self):
         if self.type == Channel.TYPE_OUT:
-            Channel.print_debug("Couldn't write output to input channel {0}".format(self.id))
+            Channel.print_debug("Couldn't read input from output channel {0}".format(self.id))
             return
 
-        return self.__out_queue.get()
+        return self.__in_queue.get()
         #pass
 
     def enqueueInput(self, data):
@@ -99,6 +99,9 @@ class Channel(object):
             return True
         else:
             return False
+        
+    def onClose(self):
+        print "Channel ID {0} onClose called".format(self.id)
 
 # obsolete, remove
 class FileStreamChannelFileMode:
@@ -155,6 +158,9 @@ class StreamChannel(Channel):
     CHANNEL_CONTROL_REQUEST_READ_TIMEOUT = 7
     CHANNEL_CONTROL_REQUEST_WRITE_TIMEOUT = 8
     CHANNEL_CONTROL_REQUEST_SEEK = 9
+    
+    CHANNEL_CONTROL_INFORM_REMOTEBUFFER_LIMIT = 1001
+    CHANNEL_CONTROL_INFORM_REMOTEBUFFER_SIZE = 1002    
 
     def __init__(self, channel_id, stream_id):
         # stream attributes
@@ -231,9 +237,11 @@ class StreamChannel(Channel):
         self.__sendControlMessage(control_msg)
         
     def Read(self, count, timeout=0):
-        control_msg = struct.pack("!Iii", StreamChannel.CHANNEL_CONTROL_REQUEST_READ, count, timeout)
-        self.__sendControlMessage(control_msg)
-        # wait for data ??
+        # on demand read:
+        #control_msg = struct.pack("!Iii", StreamChannel.CHANNEL_CONTROL_REQUEST_READ, count, timeout)
+        #self.__sendControlMessage(control_msg)
+
+        return self.readInput()
     
     def ReadByte(self):
         pass
@@ -258,17 +266,18 @@ class StreamChannel(Channel):
         super(StreamChannel, self).writeOutput(header + control_data)
         
     def writeOutput(self, data):
-        print "StreamChannel error: writeOutput shouldn't be called, use Write instead"
+        self.__writeData(data)
         
-    def readInput(self):
-        print "StreamChannel error: writeOutput shouldn't be called, use Write instead"
+        
+    #def readInput(self):
+        #print "StreamChannel error: writeOutput shouldn't be called, use Write instead"
         
     def enqueueInput(self, data):
         data_type = struct.unpack("!B", data[0])[0]
         data = data[1:]
         
         if data_type == 0:
-            self.__in_queue.put(data) # normal data
+            self._Channel__in_queue.put(data) # normal data
         else:
             self.__dispatchControlMessage(data) # control data
         
