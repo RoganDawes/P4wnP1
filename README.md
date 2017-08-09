@@ -29,6 +29,15 @@ Today advanced features are merged back into the master branch, among others:
 -   the **HID covert channel frontdoor** (Get access to a python shell on P4wnP1 from a restricted Windows host, tunneled through a raw HID device with low footprint. The target doesn't see a network adapter, serial or any other communication device.)
 -	refined USB, **modular USB setup**
 
+External resources using P4wnP1
+==================
+
+-    Black Hat Sessions XV, workshop material "Weaponizing the Raspberry Pi Zero" (Workshop material + slides): [BHSXV]
+-    ihacklabs[dot]com, tutorial "Red Team Arsenal – Hardware :: P4wnp1 Walkthrough" (Spanish): [IHackLabs]
+
+  [BHSXV]: https://www.madison-gurkha.com/hands-onhacking-raspberrypi-en
+  [IHackLabs]: https://www.ihacklabs.com/es/red-team-arsenal-hardware-p4wnp1-walkthrough-cargando-y-disparando-con-la-raspberry-pi-zero-w-parte-1/
+
 P4wnP1 Features
 ===============
 
