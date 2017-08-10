@@ -98,3 +98,11 @@ function start_wifi_accesspoint()
 	generate_dnsmasq_wifi_conf
 	dnsmasq -C /tmp/dnsmasq_wifi.conf
 }
+
+function connect_to_accesspoint()
+{
+	sudo ifconfig wlan0 up
+	#CHECK FOR NETWORK: "sudo iwlist wlan0 scan"
+	#only connect if its there. connect. if not open accesspoint
+	sudo iwconfig wlan0 essid <ESSID> key s:<key>
+}

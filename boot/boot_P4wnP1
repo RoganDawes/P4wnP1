@@ -51,6 +51,7 @@ source $wdir/boot/init_wifi.sh
 check_wifi
 if $WIFI; then
 	echo "P4wnP1: Seems WiFi module is present !"
+	# connect to accesspoint after some checks
 	# start ACCESS POINT if needed
 	if $WIFI_ACCESSPOINT; then
 		start_wifi_accesspoint
