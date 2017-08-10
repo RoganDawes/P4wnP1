@@ -127,16 +127,15 @@ cp conf/default_Responder.conf Responder/Responder.conf
 sudo cp conf/default_index.html /var/www/index.html
 sudo chmod a+r /var/www/index.html
 
-
-# create 128 MB image for USB storage
-echo "Creating 128 MB image for USB Mass Storage emulation"
+# create X MB image for USB storage
+image_size=$(df | awk '{if ($NF=="/"){print $3/1000000*0.8}}')
+echo "Creating "$image_size" MB image for USB Mass Storage emulation"
 mkdir -p $wdir/USB_STORAGE
-dd if=/dev/zero of=$wdir/USB_STORAGE/image.bin bs=1M count=128
+dd if=/dev/zero of=$wdir/USB_STORAGE/image.bin bs=1M count=$image_size
 mkdosfs $wdir/USB_STORAGE/image.bin
 
 # create folder to store loot found
 mkdir -p $wdir/collected
-
 
 # create systemd service unit for P4wnP1 startup
 if [ ! -f /etc/systemd/system/P4wnP1.service ]; then
