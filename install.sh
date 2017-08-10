@@ -128,7 +128,7 @@ sudo cp conf/default_index.html /var/www/index.html
 sudo chmod a+r /var/www/index.html
 
 # create X MB image for USB storage
-image_size=$(df | awk '{if ($NF=="/"){print $3/1000000*0.8}}')
+image_size=$(df | awk '{if ($NF=="/"){print $4/1000*0.8}}')
 echo "Creating "$image_size" MB image for USB Mass Storage emulation"
 mkdir -p $wdir/USB_STORAGE
 dd if=/dev/zero of=$wdir/USB_STORAGE/image.bin bs=1M count=$image_size
