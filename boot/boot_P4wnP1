@@ -55,7 +55,7 @@ if $WIFI; then
 	if $CONNECT_TO_EXISTING_WIFI; then
 		# PASSTHROUGH ISNT WORKING FOR SOME REASON
 		# would be nice to get some help here
-		start_wifi_accesspoint
+		connect_to_accesspoint
 	else
 		# start ACCESS POINT if needed
 		if $WIFI_ACCESSPOINT; then
