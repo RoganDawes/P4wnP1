@@ -52,9 +52,15 @@ check_wifi
 if $WIFI; then
 	echo "P4wnP1: Seems WiFi module is present !"
 	# connect to accesspoint after some checks
-	# start ACCESS POINT if needed
-	if $WIFI_ACCESSPOINT; then
+	if $CONNECT_TO_EXISTING_WIFI; then
+		# PASSTHROUGH ISNT WORKING FOR SOME REASON
+		# would be nice to get some help here
 		start_wifi_accesspoint
+	else
+		# start ACCESS POINT if needed
+		if $WIFI_ACCESSPOINT; then
+			start_wifi_accesspoint
+		fi
 	fi
 fi
 
@@ -74,7 +80,7 @@ if $USB_RNDIS || $USB_ECM; then
 fi
 
 # change hostname to make P4wnP1 resolveable on "name.local"
-if $WIFI || $USB_ETHERNET; then
+if $WIFI || $USB_ETHERNET || $CONNECT_TO_EXISTING_WIFI; then
 	hostname="MAME82-P4WNP1"
 
 	hostname $hostname

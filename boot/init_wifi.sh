@@ -102,7 +102,26 @@ function start_wifi_accesspoint()
 function connect_to_accesspoint()
 {
 	sudo ifconfig wlan0 up
-	#CHECK FOR NETWORK: "sudo iwlist wlan0 scan"
-	#only connect if its there. connect. if not open accesspoint
-	sudo iwconfig wlan0 essid <ESSID> key s:<key>
+	if [ $(sudo iwlist wlan0 scan | grep $EXISTING_AP_NAME) ]; then
+		# check if /etc/wpa_supplicant/wpa_supplicant.conf exists
+		if [ $(cat /etc/wpa_supplicant/wpa_supplicant.conf | grep $EXISTING_AP_NAME) ]; then
+			# only connect if its there. connect. if not open accesspoint
+			sudo wpa_supplicant -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf
+			sudo dhclient wlan0
+			#check if IP was obtained
+		else
+			printf "\nNo entry for Accesspoint \"$EXISTING_AP_NAME\" found! creating one... "
+			if $EXISTING_AP_PSK; then
+				$wdir/wifi/append_secure_wpa_conf.sh $EXISTING_AP_NAME $EXISTING_AP_PSK
+				printf "success\n"
+
+			else
+				printf "fail!\n PLEASE SPECIFY EXISTING_AP_PSK or use wifi/append_secure_wpa_conf.sh to generate an AP entry\n"
+				start_wifi_accesspoint
+			fi
+		fi
+	else
+		printf "\nNetwork \"$EXISTING_AP_NAME\" not found!\n"
+		start_wifi_accesspoint
+	fi
 }
