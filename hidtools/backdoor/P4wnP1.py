@@ -882,8 +882,11 @@ Use "help FireStage1" to get more details.
 		# we could use the create proc handler
 		return self.client.callMethod("core_fs_open_file", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
 	
-	def client_call_open_stream_channel(self, stream_id):
-		method_args = struct.pack("!i", stream_id)
+	def client_call_open_stream_channel(self, stream_id, passthrough = True):
+		pt = 1
+		if not passthrough:
+			pt = 0
+		method_args = struct.pack("!iB", stream_id, pt)
 		# we could use the create proc handler
 		return self.client.callMethod("core_open_stream_channel", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
 	
@@ -991,13 +994,13 @@ Use "help FireStage1" to get more details.
 		
 		# if we are here, file open succeeded and we request a channel for the filestream
 		stream_channel = None
-		success, result = self.client_call_open_stream_channel(stream_id)
+		success, result = self.client_call_open_stream_channel(stream_id,  passthrough=False)
 		if success:
 			channel_id = struct.unpack("!I", result)[0] # unsigned int
 			print "Opened stream channel with id {0}".format(channel_id)
 			
 			# bind stream to local StreamChannel object
-			stream_channel =  StreamChannel(channel_id, stream_id)
+			stream_channel = StreamChannel(channel_id, stream_id, False)
 			
 			# add channel to client
 			self.client.addChannel(stream_channel)
@@ -1022,6 +1025,7 @@ Use "help FireStage1" to get more details.
 			readcount =  len(readen)
 			stream_channel.Write(readen)
 			sys.stdout.write(".")
+			sys.stdout.flush()
 		stream_channel.Flush()
 		
 		# request stream close
@@ -1030,6 +1034,7 @@ Use "help FireStage1" to get more details.
 		
 		print "Upload of '{0}' finished in {1:4.2f} seconds".format(source_path, endtime - starttime)
 		
+		#ToDo: Implement control communicatione to close remote file
 		# close file
 		
 	def do_download(self, line):

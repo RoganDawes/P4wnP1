@@ -1,6 +1,7 @@
 import Queue
 from FileSystem import FileSystem
 import struct
+from threading import Event, Condition
 
 class ChannelException(Exception):
     def __init__(self, value):
@@ -160,11 +161,16 @@ class StreamChannel(Channel):
     CHANNEL_CONTROL_REQUEST_READ_TIMEOUT = 7
     CHANNEL_CONTROL_REQUEST_WRITE_TIMEOUT = 8
     CHANNEL_CONTROL_REQUEST_SEEK = 9
+    CHANNEL_CONTROL_REQUEST_WRITE = 10
     
     CHANNEL_CONTROL_INFORM_REMOTEBUFFER_LIMIT = 1001
-    CHANNEL_CONTROL_INFORM_REMOTEBUFFER_SIZE = 1002    
+    CHANNEL_CONTROL_INFORM_REMOTEBUFFER_SIZE = 1002
+    CHANNEL_CONTROL_INFORM_WRITE_SUCCEEDED = 1003
+    CHANNEL_CONTROL_INFORM_READ_SUCCEEDED = 1004
+    CHANNEL_CONTROL_INFORM_WRITE_FAILED = 1005
+    CHANNEL_CONTROL_INFORM_READ_FAILED = 1006   
 
-    def __init__(self, channel_id, stream_id):
+    def __init__(self, channel_id, stream_id, passthrough = True):
         # stream attributes
         self.__can_read = False
         self.__can_seek = False
@@ -174,6 +180,14 @@ class StreamChannel(Channel):
         self.__position = 0
         self.__read_timeout = 0
         self.__write_timeout = 0
+        self.__passthrough = passthrough
+        if not passthrough:
+            self.__write_condition = Condition()
+            self.__read_condition = Condition()
+            self.__write_succeeded = False
+            self.__read_succeeded = False
+            self.__write_size = 0
+            self.__read_size = 0        
         
         # internal attributes
         self.__stream_id = stream_id # id (hasCode) of the stream bound to this channel, if any
@@ -254,14 +268,41 @@ class StreamChannel(Channel):
         self.__sendControlMessage(control_msg)
     
     def Write(self, data):
-        self.__writeData(data)
+        res = self.__writeData(data)
+        if not self.__passthrough:
+            return res
     
     def WriteByte(self, byte):
-        self.__writeData(byte)
+        res = self.__writeData(byte)
+        if not self.__passthrough:
+            return res
         
     def __writeData(self, data):
-        header = struct.pack("!B", 0)  # header byte 0 indicates that data is written 
-        super(StreamChannel, self).writeOutput(header + data)
+        if self.__passthrough:
+            # in passthrough mode data is written as dedicated data message
+            header = struct.pack("!B", 0)  # header byte 0 indicates that data is written 
+            super(StreamChannel, self).writeOutput(header + data)
+        else:
+            # if passthrough is disable, data is written as control message and an answer is expected
+            control_msg = struct.pack("!Ii", StreamChannel.CHANNEL_CONTROL_REQUEST_WRITE, len(data))
+            control_msg += data
+            self.__sendControlMessage(control_msg)
+            
+            # we wait till an answer is received (based on a condition)
+            self.__write_condition.acquire()
+            self.__write_condition.wait(timeout=None)
+            #check if write succeeded
+            succeeded = self.__write_succeeded
+            write_size = self.__write_size
+            self.__write_condition.release()
+            
+            if succeeded:
+                return write_size
+            else:
+                return -1 # indicate write error (alternatively a ChannelException could be raised)
+            
+            
+        
         
     def __sendControlMessage(self, control_data):
         header = struct.pack("!B", 1)  # header byte 1 indicates that control data
@@ -269,8 +310,9 @@ class StreamChannel(Channel):
         super(StreamChannel, self).writeOutput(header + control_data)
         
     def writeOutput(self, data):
-        self.__writeData(data)
-        
+        res = self.__writeData(data)
+        if not self.__passthrough:
+            return res
         
     #def readInput(self):
         #print "StreamChannel error: writeOutput shouldn't be called, use Write instead"
@@ -285,6 +327,25 @@ class StreamChannel(Channel):
             self.__dispatchControlMessage(data) # control data
         
     def __dispatchControlMessage(self, control_data):
-        print "Channel with id '{0}' received control data: {1}".format(self.id, repr(control_data))
-        
+        #print "Channel with id '{0}' received control data: {1}".format(self.id, repr(control_data))
+        # grab control_msg id
+        control_msg = struct.unpack("!I", control_data[:4])[0]
+        data =  control_data[4:]
+        if control_msg == self.CHANNEL_CONTROL_INFORM_WRITE_FAILED:
+            # set event for write operation response
+            self.__write_condition.acquire()
+            self.__write_succeeded = False
+            self.__write_condition.notifyAll()
+            self.__write_condition.release()
+        elif control_msg == self.CHANNEL_CONTROL_INFORM_WRITE_SUCCEEDED:
+            # read how many bytes have been written
+            size_written = struct.unpack("!i", data[:4])[0]
+            
+            
+            # set event for write operation response
+            self.__write_condition.acquire()
+            self.__write_size =  size_written
+            self.__write_succeeded = True
+            self.__write_condition.notifyAll()
+            self.__write_condition.release()
     
