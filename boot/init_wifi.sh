@@ -114,6 +114,8 @@ function connect_to_accesspoint()
 			if $EXISTING_AP_PSK; then
 				$wdir/wifi/append_secure_wpa_conf.sh $EXISTING_AP_NAME $EXISTING_AP_PSK
 				printf "success\n"
+				#try again
+				connect_to_accesspoint
 
 			else
 				printf "fail!\n PLEASE SPECIFY EXISTING_AP_PSK or use wifi/append_secure_wpa_conf.sh to generate an AP entry\n"
