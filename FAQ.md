@@ -7,6 +7,12 @@ Most of the payloads do, but not the HID backdoor (if you'd enable USB networkin
 An example for a more sophisticated payload running without WiFi is the "HID frontdoor": [video link](https://www.youtube.com/watch?v=MI8DFlKLHBk)
 
 
+### How to connect P4wnP1 to Internet, once installed ?
+
+Here's a little tutorial video, showing the steps on Windows 10. Requirement: `network-only.txt`payload has to be running.
+
+[video link](https://youtu.be/QEWaIoal5qU)
+
 ### Does this run on other ARM devices?
 P4wnP1 uses several features specific to raspbian. Among others: 
 - the RNDIS ratepatch is specific to the raspbian RNDIS kernel module
