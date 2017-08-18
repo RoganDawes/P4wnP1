@@ -241,8 +241,11 @@ class Client(object):
         outdata = []
 
         # iterate over output channels
-        for ch in self.__channels_out:
-            channel = self.__channels_out[ch]
+        for ch in self.__channels_out.keys():
+            try:
+                channel = self.__channels_out[ch]
+            except KeyError:
+                continue
             while channel.hasOutput():
                 # retrieve the pending output
                 data = channel.dequeueOutput()

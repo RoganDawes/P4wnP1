@@ -107,6 +107,8 @@ class Channel(object):
         pass
 
     def hasOutput(self):
+        if self.__isClosed:
+            return False
         if self.type == Channel.TYPE_IN:
             Channel.print_debug("Couldn't check channel {0} for pending output, this is an INPUT channel".format(self.id))
             return False
@@ -118,7 +120,7 @@ class Channel(object):
         
     def onClose(self):
         self.__isClosed = True
-        print "Channel ID {0} onClose called".format(self.id)
+        print "ServerChannel: channel ID {0} onClose called".format(self.id)
     
 
 class StreamChannel(Channel):
@@ -168,7 +170,9 @@ class StreamChannel(Channel):
     CHANNEL_CONTROL_INFORM_WRITE_SUCCEEDED = 1003
     CHANNEL_CONTROL_INFORM_READ_SUCCEEDED = 1004
     CHANNEL_CONTROL_INFORM_WRITE_FAILED = 1005
-    CHANNEL_CONTROL_INFORM_READ_FAILED = 1006   
+    CHANNEL_CONTROL_INFORM_READ_FAILED = 1006
+    CHANNEL_CONTROL_INFORM_FLUSH_SUCCEEDED = 1007
+    CHANNEL_CONTROL_INFORM_FLUSH_FAILED = 1008 
 
     def __init__(self, channel_id, stream_id, passthrough = True):
         # stream attributes
@@ -184,10 +188,13 @@ class StreamChannel(Channel):
         if not passthrough:
             self.__write_condition = Condition()
             self.__read_condition = Condition()
+            self.__flush_condition = Condition()
             self.__write_succeeded = False
             self.__read_succeeded = False
+            self.__flush_succeeded = False
             self.__write_size = 0
-            self.__read_size = 0        
+            self.__read_size = 0
+            self.__read_data = ""
         
         # internal attributes
         self.__stream_id = stream_id # id (hasCode) of the stream bound to this channel, if any
@@ -253,12 +260,42 @@ class StreamChannel(Channel):
         control_msg = struct.pack("!I", StreamChannel.CHANNEL_CONTROL_REQUEST_FLUSH)
         self.__sendControlMessage(control_msg)
         
+        if not self.__passthrough:
+            self.__flush_condition.acquire()
+            self.__flush_condition.wait(timeout=None)
+            succeeded =  self.__flush_succeeded
+            self.__flush_condition.release()
+            
+            return succeeded
+        
     def Read(self, count, timeout=0):
         # on demand read:
         #control_msg = struct.pack("!Iii", StreamChannel.CHANNEL_CONTROL_REQUEST_READ, count, timeout)
         #self.__sendControlMessage(control_msg)
 
-        return self.readInput()
+        if self.__passthrough:
+            if not self.hasInput():
+                return ""
+            return self.readInput()
+        else:
+             # if passthrough is disable, data is written as control message and an answer is expected
+            control_msg = struct.pack("!Iii", StreamChannel.CHANNEL_CONTROL_REQUEST_READ, count,  timeout)
+            self.__sendControlMessage(control_msg)
+            
+            # we wait till an answer is received (based on a condition)
+            self.__read_condition.acquire()
+            self.__read_condition.wait(timeout=None)
+            #check if write succeeded
+            succeeded = self.__read_succeeded
+            read_size = self.__read_size
+            read_data = self.__read_data
+            self.__read_condition.release()
+            
+            if succeeded:
+                return read_data
+            else:
+                raise ChannelException("Error reading from StreamChannel {0}".format(self.id))
+                
     
     def ReadByte(self):
         pass
@@ -341,11 +378,53 @@ class StreamChannel(Channel):
             # read how many bytes have been written
             size_written = struct.unpack("!i", data[:4])[0]
             
-            
             # set event for write operation response
             self.__write_condition.acquire()
             self.__write_size =  size_written
             self.__write_succeeded = True
             self.__write_condition.notifyAll()
             self.__write_condition.release()
+        elif control_msg == self.CHANNEL_CONTROL_INFORM_READ_SUCCEEDED:
+            # read how many bytes have been read
+            size_read = struct.unpack("!i", data[:4])[0]
+            data_read = data[4:]
+        
+            # set event for read operation response
+            self.__read_condition.acquire()
+            self.__read_size = size_read
+            self.__read_data = data_read
+            self.__read_succeeded = True
+            self.__read_condition.notifyAll()
+            self.__read_condition.release()
+        elif control_msg == self.CHANNEL_CONTROL_INFORM_READ_FAILED:
+            # set event for read operation response
+            self.__read_condition.acquire()
+            self.__read_succeeded = False
+            self.__read_condition.notifyAll()
+            self.__read_condition.release()                        
+        elif control_msg == self.CHANNEL_CONTROL_INFORM_FLUSH_SUCCEEDED:
+            self.__flush_condition.acquire()
+            self.__flush_succeeded = True
+            self.__flush_condition.notifyAll()
+            self.__flush_condition.release()            
+        elif control_msg == self.CHANNEL_CONTROL_INFORM_FLUSH_FAILED:
+            self.__flush_condition.acquire()
+            self.__flush_succeeded = False
+            self.__flush_condition.notifyAll()
+            self.__flush_condition.release()
+            
     
+    def onClose(self):
+        if not self.__passthrough:
+            # set error for pending writes
+            self.__write_condition.acquire()
+            self.__write_succeeded = False
+            self.__write_condition.notifyAll()
+            self.__write_condition.release()            
+            # set error for pending reads
+            self.__read_condition.acquire()
+            self.__read_succeeded = False
+            self.__read_condition.notifyAll()
+            self.__read_condition.release()
+        super(StreamChannel, self).onClose()
+        

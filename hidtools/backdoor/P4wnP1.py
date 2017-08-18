@@ -261,7 +261,7 @@ Use "help FireStage1" to get more details.
 
 
 			#time.sleep(5)
-			time.sleep(0.1)
+			#time.sleep(0.1)
 
 			
 
@@ -303,7 +303,7 @@ Use "help FireStage1" to get more details.
 					#elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_ADD_CHANNEL:
 						#self.addChannel(payload)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_DESTROY_RESPONSE:
-						self.print_reprompt("Client received terminates!")
+						self.print_reprompt("Client received terminate!")
 						self.client.setConnected(False)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_RUN_METHOD:
 						#print "Run method request with following payload received: {0} ".format(repr(payload))
@@ -312,13 +312,13 @@ Use "help FireStage1" to get more details.
 						self.onClientProcessExitted(payload)
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_CHANNEL_SHOULD_CLOSE:
 						channel_id = struct.unpack("!I", payload)[0]
-						self.print_reprompt("Client received channel close request for channel ID {0}!".format(channel_id))
+						self.print_reprompt("Client sent channel close request for channel ID {0}, removing channel from server...".format(channel_id))
 						self.client.removeChannel(channel_id)
 						# send back request to close remote channel, too
 						self.sendControlMessage(P4wnP1.CTRL_MSG_FROM_SERVER_CLOSE_CHANNEL, struct.pack("!I", channel_id))
 					elif msg_type == P4wnP1.CTRL_MSG_FROM_CLIENT_CHANNEL_CLOSED:
 						channel_id = struct.unpack("!I", payload)[0]
-						self.print_reprompt("Server confirmed close of channel with ID {0}!".format(channel_id))
+						self.print_reprompt("Client confirmed close of remote channel with ID {0}!".format(channel_id))
 					
 					else:
 						P4wnP1.print_debug("indata: Control channel, unknown control message type: {0}, payload: {1} ".format(msg_type, repr(payload)))
@@ -882,6 +882,12 @@ Use "help FireStage1" to get more details.
 		# we could use the create proc handler
 		return self.client.callMethod("core_fs_open_file", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
 	
+	def client_call_close_stream(self, stream_id):			
+		method_args = struct.pack("!i", stream_id)
+			
+		# we could use the create proc handler
+		return self.client.callMethod("core_fs_close_stream", method_args, self.handler_pass_through_result, error_handler=self.handler_pass_through_result, waitForResult = True, deliverResult = True)
+	
 	def client_call_open_stream_channel(self, stream_id, passthrough = True):
 		pt = 1
 		if not passthrough:
@@ -1011,7 +1017,7 @@ Use "help FireStage1" to get more details.
 			# ToDo: Remote stream should be destroyed
 			return
 		
-		starttime =  time.time()
+		starttime = time.time()
 		
 		# if here, we should have a valid stream_channel
 		# inform client that the channel has link
@@ -1020,22 +1026,38 @@ Use "help FireStage1" to get more details.
 		# copy data to upload file in chunks
 		chunksize = 30000
 		readcount = -1
+		no_error = True
 		while readcount !=  0:
 			readen = sourcefile.read(chunksize)
 			readcount =  len(readen)
-			stream_channel.Write(readen)
+			writeres = stream_channel.Write(readen)
 			sys.stdout.write(".")
+			if writeres == -1:
+				# write error (or channel closed)
+				print "\nError writing to file channel"
+				no_error = False
+				break
 			sys.stdout.flush()
-		stream_channel.Flush()
 		
-		# request stream close
-		stream_channel.Close()
-		endtime =  time.time()
+		sourcefile.close()
+			
+		if no_error:
+			stream_channel.Flush()
 		
-		print "Upload of '{0}' finished in {1:4.2f} seconds".format(source_path, endtime - starttime)
+			# request streamChannel close
+			stream_channel.Close()
+			endtime =  time.time()
+			
+			print "\nUpload of '{0}' finished in {1:4.2f} seconds".format(source_path, endtime - starttime)
 		
-		#ToDo: Implement control communicatione to close remote file
-		# close file
+		
+		# Request close of remote FileStream file
+		if self.client.isConnected():
+			success, result = self.client_call_close_stream(stream_id)
+		else:
+			print "Remote file handle couldn't be closed, because client disconnected"
+		
+		print
 		
 	def do_download(self, line):
 		args = line.split(" ")
@@ -1055,6 +1077,25 @@ Use "help FireStage1" to get more details.
 			return
 
 		print "Downloading remote file {0} to local file {1}".format(source_path, target_path)
+		
+		targetfile = None
+		# try to open local file first
+		try:
+			targetfile = FileSystem.open_local_file(target_path, FileMode.CreateNew, FileAccess.Write)
+		except Exception as e:
+			print e.message
+			print "Seems the file '{0}' exists or write permissions are missing!".format(target_path)
+			print "Do you want to try to overwrite the file"
+			overwrite = P4wnP1.askYesNo(default_yes=True)
+			if overwrite:
+				try:
+					targetfile = FileSystem.open_local_file(target_path, FileMode.Create, FileAccess.Write)
+				except Exception as e:
+					print e.message
+					return
+			else:
+				return		
+		
 
 		# Try to open remote file
 		success, result = self.client_call_open_file(remote_filename = source_path, 
@@ -1067,32 +1108,22 @@ Use "help FireStage1" to get more details.
 			print stream_id
 		else:
 			print "File open Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
-			print "Seems the target file doesn't exist, Do you want to try to create it?"
+			print "Seems the source file doesn't exist, aborting."
 
-			overwrite = P4wnP1.askYesNo(default_yes=True)
-			if overwrite:
-				success, result = self.client_call_open_file(remote_filename = source_path, 
-				                                             remote_filemode = FileMode.OpenOrCreate, # overwrite if exists
-				                                                     remote_fileaccess = FileAccess.Read) 
-				if success:
-					stream_id = struct.unpack('!i', result)[0] #signed int
-					print "Remote FileStream with ID '{0}' opened".format(stream_id)
-				else:
-					print "File open Error: {0}".format(StructHelper.extractNullTerminatedString(result)[0])
-					return
-			else:
-				return
+			targetfile.close()
+			return
 
 		# if we are here, file open succeeded and we request a channel for the filestream
 		stream_channel = None
-		success, result = self.client_call_open_stream_channel(stream_id)
+		success, result = self.client_call_open_stream_channel(stream_id, 
+		                                                      passthrough=False)
 		if success:
 			channel_id = struct.unpack("!I", result)[0] # unsigned int
 			print "Opened stream channel with id {0}".format(channel_id)
 
 			# bind stream to local StreamChannel object
-			stream_channel =  StreamChannel(channel_id, stream_id)
-
+			stream_channel =  StreamChannel(channel_id, stream_id,  passthrough=False)
+			
 			# add channel to client
 			self.client.addChannel(stream_channel)
 
@@ -1102,26 +1133,47 @@ Use "help FireStage1" to get more details.
 			# ToDo: Remote stream should be destroyed
 			return
 
+		starttime = time.time()
+		
 		# if here, we should have a valid stream_channel
 		# inform client that the channel has link
 		self.client_call_inform_channel_added(stream_channel)
 
 		count = -1
+		no_error = True
+		chunksize = 30000
 		while count != 0:
 			try:
-				readen = stream_channel.Read(50)
+				readen = stream_channel.Read(chunksize)
 				count =  len(readen)
+				if count >  0:
+					sys.stdout.write(".")
+					sys.stdout.flush()
+					targetfile.write(readen)
+				elif count == 0:
+					targetfile.flush()
+					targetfile.close()
 			except ChannelException as e:
 				print(e.__str__())
+				no_error = False
+				targetfile.close()
 				return # abort further reading
-			# here we have the result of a single read
-			print "readtest, content:\n==================\n\n {0} ".format(readen)
-		
+			
 		# close remote stream
+		if no_error:
+			# request streamChannel close
+			stream_channel.Close()
+			endtime =  time.time()
+			
+			print "\nDownload of '{0}' finished in {1:4.2f} seconds".format(source_path, endtime - starttime)		
 		
-		# ToDo: If file close isn't implemented, the file will be blocked till the client exits
-		# close remote file
+		# Request close of remote FileStream file
+		if self.client.isConnected():
+			success, result = self.client_call_close_stream(stream_id)
+		else:
+			print "Remote file handle couldn't be closed, because client disconnected"		
 		
+		print
 
 if __name__ == "__main__":
 	rundir = os.path.dirname(sys.argv[0])
