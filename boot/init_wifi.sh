@@ -104,16 +104,16 @@ function connect_to_accesspoint()
 	sudo ifconfig wlan0 up
 	if [ $(sudo iwlist wlan0 scan | grep $EXISTING_AP_NAME) ]; then
 		# check if /etc/wpa_supplicant/wpa_supplicant.conf exists
-		printf "$EXISTING_AP_NAME was found"
+		printf "\"$EXISTING_AP_NAME\" was found\n"
 		if [ $(cat /etc/wpa_supplicant/wpa_supplicant.conf | grep $EXISTING_AP_NAME) ]; then
 			# only connect if its there. connect. if not open accesspoint
-			printf "entry was found, connecting..."
+			printf "entry was found, connecting...\n"
 			sudo wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf
 			sudo dhclient wlan0
 			#check if IP was obtained (to lazy to implement)
 		else
 			printf "\nNo entry for Accesspoint \"$EXISTING_AP_NAME\" found! creating one... "
-			if $EXISTING_AP_PSK; then
+			if [ $EXISTING_AP_PSK ]; then
 				$wdir/wifi/append_secure_wpa_conf.sh $EXISTING_AP_NAME $EXISTING_AP_PSK
 				printf "success! retrying...\n"
 				connect_to_accesspoint

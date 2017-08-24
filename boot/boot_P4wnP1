@@ -55,7 +55,7 @@ if $WIFI; then
 	if $WIFI_ACCESSPOINT; then
 		echo "starting accesspoint"
 		start_wifi_accesspoint
-		if $CONNECT_TO_EXISTING_WIFI; then
+		if $EXISTING_AP; then
 			# PASSTHROUGH ISNT WORKING FOR SOME REASON
 			# would be nice to get some help here
 			echo "connecting to accesspoint"
@@ -80,7 +80,7 @@ if $USB_RNDIS || $USB_ECM; then
 fi
 
 # change hostname to make P4wnP1 resolveable on "name.local"
-if $WIFI || $USB_ETHERNET || $CONNECT_TO_EXISTING_WIFI; then
+if $WIFI || $USB_ETHERNET || $EXISTING_AP; then
 	hostname="MAME82-P4WNP1"
 
 	hostname $hostname
