@@ -52,14 +52,14 @@ check_wifi
 if $WIFI; then
 	echo "P4wnP1: Seems WiFi module is present !"
 	# connect to accesspoint after some checks
-	if $CONNECT_TO_EXISTING_WIFI; then
-		# PASSTHROUGH ISNT WORKING FOR SOME REASON
-		# would be nice to get some help here
-		connect_to_accesspoint
-	else
-		# start ACCESS POINT if needed
-		if $WIFI_ACCESSPOINT; then
-			start_wifi_accesspoint
+	if $WIFI_ACCESSPOINT; then
+		echo "starting accesspoint"
+		start_wifi_accesspoint
+		if $CONNECT_TO_EXISTING_WIFI; then
+			# PASSTHROUGH ISNT WORKING FOR SOME REASON
+			# would be nice to get some help here
+			echo "connecting to accesspoint"
+			connect_to_accesspoint
 		fi
 	fi
 fi
