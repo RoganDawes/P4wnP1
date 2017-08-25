@@ -26,6 +26,17 @@ class Client(object):
         self.__os_info = ""
         self.__ps_version = ""
         self.__next_method_id = 1
+        # abort all pending method with error
+        if hasattr(self,  "_Client__pending_methods"):
+            for method_id in self.__pending_methods.keys(): # we copy the dictionary keys, as processed methods get removed by another thread while iterating
+                errstr =  "Method aborted, because client disconnected"
+                err_indicator =  1
+                response = struct.pack("!IB{0}sx".format(len(errstr)), method_id, err_indicator, errstr)
+                self.deliverMethodResponse(response)
+        # close all opened channels
+        if hasattr(self,  "_Client__channels"):
+            for channel in self.__channels.values():
+                channel.onClose() 
         self.__pending_methods = {}
         self.__processes = {}
         self.__channels = {}
@@ -66,8 +77,8 @@ class Client(object):
         if not link == self.__hasLink:
             Client.print_debug("Link state changed: {0}".format(link))
             if not link:
-                self.reset_state()
                 self.setConnected(False)
+                self.reset_state() # reset state sets the internal connection state to false, if issued before setConnected(false) there wouldn't be a change in connection state and thus callback aren't issued
                 #self.onDisconnect()
         self.__hasLink = link
 
@@ -139,7 +150,8 @@ class Client(object):
 
             # try to fetch error handler
             if method.error_handler:
-                method.handler_result = method.error_handler(errmsg)
+                #method.handler_result = method.error_handler(errmsg)
+                method.handler_result = (False, method.error_handler(errmsg)) # return a list, boolean indicates error, second entry is result
             else:
                 Client.print_debug("Method '{0}' with call ID {1} failed, but no error handler defined. Error Message: {1}".format(method.name, errmsg))
         else:
@@ -147,7 +159,7 @@ class Client(object):
             Client.print_debug("Response for method '{0}' with call ID {1} received. Method succeeded, delivering result to handler: {3}".format(method.name, method.id, success_error, repr(response)))
             # try to fetch error handler
             if method.handler:
-                method.handler_result = method.handler(response)
+                method.handler_result = (True, method.handler(response)) # return a list, boolean indicates success, second entry is result
             else:
                 Client.print_debug("Method '{0}' with call ID {1} succeeded, but no handler defined. Method result: {1}".format(method.name, response))
 
@@ -171,12 +183,12 @@ class Client(object):
         self.__processes[proc.id] = proc
         
     def removeProc(self, proc_id):
-        if proc_id in self.__processes:
-            if proc_id in self.__processes:
-                proc =  self.__processes[proc_id]
-                self.removeChannel(proc.ch_stdin.id)
-                self.removeChannel(proc.ch_stderr.id)
-                self.removeChannel(proc.ch_stdout.id)
+        
+        #if proc_id in self.__processes:
+                #proc =  self.__processes[proc_id]
+                #self.removeChannel(proc.ch_stdin.id)
+                #self.removeChannel(proc.ch_stderr.id)
+                #self.removeChannel(proc.ch_stdout.id)
         
         del self.__processes[proc_id]
 
@@ -207,7 +219,8 @@ class Client(object):
             return None
         
     def removeChannel(self, channel_id):
-        ch =  self.getChannel(channel_id)
+        ch = self.getChannel(channel_id)
+        ch.onClose()
         if ch:
             if channel_id in self.__channels_in:
                 del self.__channels_in[channel_id]
@@ -228,8 +241,11 @@ class Client(object):
         outdata = []
 
         # iterate over output channels
-        for ch in self.__channels_out:
-            channel = self.__channels_out[ch]
+        for ch in self.__channels_out.keys():
+            try:
+                channel = self.__channels_out[ch]
+            except KeyError:
+                continue
             while channel.hasOutput():
                 # retrieve the pending output
                 data = channel.dequeueOutput()

@@ -1,0 +1,11 @@
+- calls to remote methods deliver boolean to indicate error + result (if client.callMethod is issued with deliverResult=True)
+- if client disconnects, pending methods are set to error
+- fixed issue on connection state reporting, when client times out
+- fixed exception handling in core_create_process
+- added pwd, ls and cd command for remote FS
+- deployed a pass_trough handler, handing back data to the caller (mustn#t replace the default handler which prints out results)
+
+
+ToDo: 
+- add optional timeout to for remote method calls
+- ls, pwd, cd need to check if client is connected before running
