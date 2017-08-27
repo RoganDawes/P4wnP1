@@ -1,0 +1,6 @@
+GUI r
+DELAY 500
+STRING powershell.exe
+ENTER
+DELAY 1000
+

