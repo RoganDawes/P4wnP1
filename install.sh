@@ -8,7 +8,6 @@
 #       - install.sh should only be run ONCE
 #       - work in progress (contains possible errors and typos)
 #	- the script needs an Internet connection to install the required packages
-#	- if /home/pi/.profile is patched correctly, responder output is shown via HDMI while connected to target
 #
 # ToDo
 # - [done] enable autologin
@@ -45,23 +44,26 @@ echo "...[pass] Internet connection works"
 
 # check for Raspbian Jessie
 echo "Testing if the system runs Raspbian Jessie..."
-if ! grep -q -E "Raspbian.*jessie" /etc/os-release ; then 
-        echo "...[Error] Pi is not running Raspbian Jessie! Exiting ..."
+if ! (grep -q -E "Raspbian.*jessie" /etc/os-release || grep -q -E "Raspbian.*stretch" /etc/os-release) ; then
+        echo "...[Error] Pi is not running Raspbian Jessie or Stretch! Exiting ..."
         exit
 fi
-echo "...[pass] Pi seems to be running Raspbian Jessie"
+echo "...[pass] Pi seems to be running Raspbian Jessie or Stretch"
 
 echo "Backing up resolv.conf"
 sudo cp /etc/resolv.conf /tmp/resolv.conf
 
 echo "Installing needed packages..."
 sudo apt-get update
-if $WIFI; then
-# install dhcpd, git, screen, pip
-	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools hostapd
-else
-	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools
-fi
+#if $WIFI; then
+#	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools hostapd
+#else
+#	sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools
+#fi
+
+# hostapd gets installed in even if WiFi isn't present (SD card could be moved from "Pi Zero" to "Pi Zero W" later on)
+sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools hostapd
+
 
 # not needed in production setup
 #sudo apt-get install -y tshark tcpdump
@@ -78,8 +80,13 @@ sudo bash -c "echo nameserver 8.8.8.8 >> /etc/resolv.conf"
 
 # install pycrypto
 echo "Installing needed python additions..."
-sudo pip install pycrypto
+# Fix: issue of conflicting filename 'setup.cfg' with paython setuptools
+# Reported by  PoSHMagiC0de
+# https://github.com/mame82/P4wnP1/issues/52#issuecomment-325236711
+mv setup.cfg setup.bkp
+sudo pip install pycrypto # already present on stretch
 sudo pip install pydispatcher
+mv setup.bkp setup.cfg
 
 # Installing Responder isn't needed anymore as it is packed into the Repo as submodule
 #echo "Installing Responder (patched MaMe82 branch with Internet connection emulation and wpad additions)..."
@@ -88,7 +95,7 @@ sudo pip install pydispatcher
 
 # disable interfering services
 echo "Disabeling unneeded services to shorten boot time ..."
-sudo update-rc.d ntp disable
+sudo update-rc.d ntp disable # not needed for stretch (only jessie)
 sudo update-rc.d avahi-daemon disable
 sudo update-rc.d dhcpcd disable
 sudo update-rc.d networking disable
@@ -193,6 +200,10 @@ echo "Removing all former modules enabled in /boot/cmdline.txt..."
 sudo sed -i -e 's/modules-load=.*dwc2[',''_'a-zA-Z]*//' /boot/cmdline.txt
 
 echo "Installing kernel update, which hopefully makes USB gadgets work again"
+# still needed on current stretch releas, kernel 4.9.41+ ships still
+# with broken HID gadget module (installing still needs a cup of coffee)
+# Note:  last working Jessie version was the one with kernel 4.4.50+
+#        stretch kernel known working is 4.9.45+ (only available via update right now)
 sudo rpi-update
 
 echo "===================================================================================="
