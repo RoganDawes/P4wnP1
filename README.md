@@ -290,7 +290,7 @@ Requirements
 ============
 
 -   Raspberry Pi Zero / Pi Zero W (other Pis don’t support USB gadget because they’re equipped with a Hub, so don’t ask)
--   Raspbian Jessie Lite pre installed (kernel is updated by the P4wnP1 installer, as the current kernel has errors in the USB gadget modules, resulting in a crash)
+-   Raspbian Jessie/Stretch Lite pre installed (kernel is updated by the P4wnP1 installer, as the current kernel has errors in the USB gadget modules, resulting in a crash)
 -   Internet connection to run the `install.sh` script
 -   the project is still work in progress, so features and new payloads are added in frequently (make sure to have an updated copy of P4wnP1 repo)
 
