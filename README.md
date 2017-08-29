@@ -29,7 +29,7 @@ Today advanced features are merged back into the master branch, among others:
 -   the **HID covert channel frontdoor** (Get access to a python shell on P4wnP1 from a restricted Windows host, tunneled through a raw HID device with low footprint. The target doesn't see a network adapter, serial or any other communication device.)
 -	refined USB, **modular USB setup**
 
-External resources using P4wnP1
+External Resources using P4wnP1
 ==================
 
 -    Black Hat Sessions XV, workshop material "Weaponizing the Raspberry Pi Zero" (Workshop material + slides): [BHSXV]
@@ -49,46 +49,46 @@ P4wnP1 Features
     - **USB Mass storage** (currently only in demo setup with 128 Megabyte drive)
     - **RNDIS** (Windows Networking)
     - **CDC ECM** (MacOS / Linux Networking)
--	Raspberry Pi **LED sate feedback** with a simple bash command (`led_blink`)
+-	Raspberry Pi **LED state feedback** with a simple bash command (`led_blink`)
 -   customizeable **bash based payload scripts** (see `payloads/` subfolder for examples example)
 -   includes **Responder** and a precompiled **John the Ripper Jumbo** version
 -   **Auto attack:** P4wnP1 automatically boots to standard shell if an OTG adapter is attached, the current payload only runs if P4wnP1 is connected as USB device to a target (without USB OTG adapter)
 	
 
-Advanced HID keyboard features
+Advanced HID Keyboard Features
 ------------------------------
 
--	Keyboad payloads could be **trigerred by targets main keyboard LEDs** (NUMLOCK, CAPSLOCK and SCROLLLOCK)
+-   Keyboard payloads could be **triggered by targets main keyboard LEDs** (NUMLOCK, CAPSLOCK and SCROLLLOCK)
 -   **dynamic payload branching** based on LED triggers
 -   Supports **DuckyScript** (see hid_keyboard2.txt payload for an advanced example)
 -   Supports **raw ASCII Output via HID Keyboard** (could be used to print out character based files via keyboard, like `cat /var/log syslog | outhid`)
 -   **Multi Keyboard language layout support** (no need to worry about target language when using HID commands)
--   output starts when target keyboard driver is loaded (no need for manual delays, `onKeyboardUp` callback could be used in payloads)
+-   Output starts when target keyboard driver is loaded (no need for manual delays, `onKeyboardUp` callback could be used in payloads)
 
 
-Advanced network features
+Advanced Network Features
 -------------------------
 
--   fake **RNDIS network interface speed up to 20GB/s** to get the lowest metric and win every fight for the dominating 'default gateway' entry in routing tables, while carrying out network attacks (patch could be found [here](https://github.com/mame82/ratepatch/commits/master) and the readme [here](https://github.com/mame82/ratepatch/blob/master/README.md))
--   **automatic link detection** and interface switching, if a payload enables both, RNDIS and ECM network
+-   Fake **RNDIS network interface speed up to 20GB/s** to get the lowest metric and win every fight for the dominating 'default gateway' entry in routing tables, while carrying out network attacks (patch could be found [here](https://github.com/mame82/ratepatch/commits/master) and the README [here](https://github.com/mame82/ratepatch/blob/master/README.md))
+-   **Automatic link detection** and interface switching, if a payload enables both RNDIS and ECM network
 -   SSH server is running by default, so P4wnP1 could be connected on 172.16.0.1 (as long as the payload enables RNDIS, CDC ECM or both) or on 172.24.0.1 via WiFi
 
 
 Advanced payload features
 -------------------------
 
--   bash **payloads based on callbacks** (see `template.txt` payload for details)
+-   bash **payloads based on callbacks** (see [`template.txt`](payloads/template.txt) payload for details)
     - **onNetworkUp** (when target host gets network link active)
-	- **onTargetGotIP** (if the target received an IP, the IP could be accesed from the payload script)
+	- **onTargetGotIP** (if the target received an IP, the IP could be accessed from the payload script)
 	- **onKeyboardUp** (when keyboard driver installation on target has finished and keyboard is usable)
 	- **onLogin** (when a user logs in to P4wnP1 via SSH)
-- configuration could be done globally (`setup.cfg`) or overwritten per payload (if the same parameter is defined in the payload script)
+- configuration can be done globally (`setup.cfg`) or overwritten per payload (if the same parameter is defined in the payload script)
 - settings include: 
-    - USB config (vendor ID, product ID, **device types to enable** ...)
-    - WiFi config (access point name, password ...)
+    - USB config (Vendor ID, Product ID, **device types to enable** ...)
+    - WiFi config (SSID, password ...)
 	- HID keyboard config (**target keyboard language** etc.)
 	- Network and DHCP config
-	- **payload selection**
+	- **Payload Selection**
 
 
 Windows LockPicker
@@ -129,9 +129,9 @@ HID frontdoor features
 ----------------------
 -    Plug and Play install of HID device on Windows (tested on Windows 7 and Windows 10)
 -    Covert channel based on a raw HID device
--    pure **in memory PowerShell payload** - nothing is written to disk
--    synchronous data transfer with about 32KBytes/s (fast enough for shells and small file transfers)
--    custom protocol stack to handle HID communication and deal with HID data fragmentation
+-    Pure **in memory PowerShell payload** - nothing is written to disk
+-    Synchronous data transfer with about 32KBytes/s (fast enough for shells and small file transfers)
+-    Custom protocol stack to handle HID communication and deal with HID data fragmentation
 -    HID based file transfer from P4wnP1 to target memory
 -    **Stage 0:** P4wnP1 sits and waits, till the attacker triggers the payload stage 1 (frequently pressing NUMLOCK)
 -    **Stage 1:** payload with "user space driver" for HID covert channel communication protocols is **typed out to the target via USB keyboard**
@@ -155,7 +155,7 @@ HID backdoor features
 - Payload to bridge an Airgap target, by relaying a shell over raw HID and provide it from P4wnP1 via WiFi
 - Plug and Play install of HID device on Windows (tested on Windows 7 and Windows 10)
 - Covert channel based on raw HID
-- pure **in memory, multi stage payload** - nothing is written to disk, small footprint (compared to typical PowerShell IOCs)
+- Pure **in memory, multi stage payload** - nothing is written to disk, small footprint (compared to typical PowerShell IOCs)
 - RAT like control server with custom shell:
     - Auto completition for core commands
 	- Send keystrokes on demand
@@ -192,10 +192,10 @@ HID backdoor attack chain and usage
 
 So that's all
 
-... no just joking. Four month without commits wouldn't have been passed if there isn't more. Up till here, there was no covert channel communication, right?!
+... no just joking. Four months without commits wouldn't have been passed if there isn't more. Up till here, there was no covert channel communication, right?!
 
 ### 4. Fire stage 1 of the covert channel payload ('FireStage1' command)
-- As we are able to print characters to the target, we are able to remote code run code. P4wnP1 uses this capability, to type out a PowerShell script, which builds and executes the covert channel communication stack. This attack works in multiple steps:
+- As we are able to print characters to the target, we are able to remotly execute code. P4wnP1 uses this capability to type out a PowerShell script, which builds and executes the covert channel communication stack. This attack works in multiple steps:
     1. Keystrokes are injected to start a PowerShell session and type out stage 1 of the payload. Depending on how the command `FireStage1` is used, this happens in different flavours. By default a short stub is executed, which hides the command windows from the user, followed by the stage 1 main script.
 	2. The stage 1 main script comes in two fashions:
        - Type 1: A pure PowerShell script which is short and thus fast, but uses the infamous IEX command (this command has the capability to make threat hunters and blue teamers happy). This is the default stage 1 payload.
@@ -204,8 +204,8 @@ So that's all
 - Last but not least, if you append `nohide` to the end of the `FireStage1` command line, the Window hiding stub isn't executed in upfront and you should be able to see all my sh**ty debug output.
 
 ### 5. Loading stage 2
-- There's no rocket sience here. The stage 1 payload initializes the basic interface to the custom HID device and receives stage 2 **fully automated**. Stage 2 includes all the protocol layers and the final backdoor. It get's directly loaded into memory as dot NET assembly.
-- So why dot NET ? The early versions of the backdoor have been fully developed in PowerShell. This resulted in a big mess when it comes to multi threading, PS 2.0 compatability without class inheritance and multi thread debugging with ISE. I don't want to say that is impossible (if you watched the commit history, there's the proof that it is possible), but there's no benefit. To be precise, there are disadvantages: Much more code is needed to achieve the same, the code is slower and **PowerShell Module Logging would be able to catch every single script command from the payload**. In contrast to using a dot NET assembly, where the only PowerShell commands which could get logged, are the ones which load the assembly and run the stage 2 trigger. Everything else is gone, as soon as the payload quits. So ... small footprint, yeah.
+- There's no rocket sience here. The stage 1 payload initializes the basic interface to the custom HID device and receives stage 2 **fully automated**. Stage 2 includes all the protocol layers and the final backdoor. It gets directly loaded into memory as dot NET assembly.
+- So why dot NET ? The early versions of the backdoor have been fully developed in PowerShell. This resulted in a big mess when it comes to multi threading, PS 2.0 compatability without class inheritance and multi thread debugging with ISE. I don't want to say that is impossible (if you watched the commit history, there's the proof that it is possible), but there's no benefit. To be precise, there are disadvantages: Much more code is needed to achieve the same, the code is slower and **PowerShell Module Logging would be able to catch every single script command from the payload**. In contrast to using a dot NET assembly, where the only PowerShell commands which could get logged, are the ones which load the assembly and run the stage 2 trigger. Everything else is gone as soon as the payload quits. So ... small footprint, yeah.
 - But don't get "PowerShell inline assemlies" compiled to a temporary file on disc ?!?! Yes, they do! At least if they're written with CSharp inline code. Luckily P4wnP1 doesn't do this. The assemblies are shipped pre-compiled.
 	
 ### 6. Using the backdoor connection
