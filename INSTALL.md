@@ -1,8 +1,10 @@
 # P4wnP1 Install Guide
 
-## Step 1 - Install Raspbian Jessie Lite
-
- 1. Download the image from [here](https://www.raspberrypi.org/downloads/raspbian/)
+## Step 1 - Install Raspbian Lite
+ 1.  Download: 
+ [Jessie Lite image](http://downloads.raspberrypi.org/raspbian/images/raspbian-2017-07-05/) (recomended)
+ or
+ [Stretch Lite image](https://www.raspberrypi.org/downloads/raspbian/) 
  2. Follow the guide [here](https://www.raspberrypi.org/documentation/installation/installing-images/README.md)
 
 ## Step 2 - Connect the Pi (Zero) to Internet
@@ -16,7 +18,7 @@ Several methods are existing to do this
 
 A guide on how to do method 3 could be found [here](http://www.circuitbasics.com/raspberry-pi-zero-ethernet-gadget/). Two things should be noted on method 3:
 
-1. Most Raspberry Pi Zero USB gadget configurations interfere with the configuration of P4wnP1 (which for example doesn't use "g_ether"). The setup script of P4wnP1 tries to fix interfering configurations. If you encouter problems, please try another method to connect to Internet and revert the changes done to the bare RASPBIAN JESSIE image.
+1. Most Raspberry Pi Zero USB gadget configurations interfere with the configuration of P4wnP1 (which for example doesn't use "g_ether"). The setup script of P4wnP1 tries to fix interfering configurations. If you encouter problems, please try another method to connect to Internet and revert the changes done to the bare RASPBIAN JESSIE/STRETCH image.
 2. Unlike described in most tutorials (including the linked one), the SSH server on current Raspbian isn't running by default. You have to boot up the Pi into interactive mode and run `sudo update-rc.d ssh enable` (avoid manual changes to `/etc/rc2.d/`, most times this messes things up).
  
 ## Getting headless Pi Zero Online (my way, needs a micro USB cable + SD card reader + KALI Linux)
