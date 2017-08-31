@@ -117,6 +117,36 @@ Here's my (sh**ty) attempt:
 
 The payload `Win10_LockPicker.txt` has to be choosen in `setup.cfg` to carry out the attack. **It is important to modify the payloads "lang" parameter to your target's language**. If you attach a HDMI monitor to P4wnP1, you could watch the status output of the attack (including captured hash and plain creds, if you made it this far).
 
+Stealing Browser credentials (hakin9_tutorial)
+==============================================
+
+This payload runs a PowerShell script, typed out via P4wnP1's built-in keyboard, in order to dump stored credentials of Microsoft Edge or Internet Explorer. Fetched credentials are stored to P4wnP1's flashdrive (USB Mass Storage).
+As the name implies, this payload is the result of an hakin9 article on payload development for P4wnP1, which is yet unpublished. For this reason, the payload has RNDIS enabled, although not needed to carry out the attack.
+It's main purpose is to show how to store the result from a keyboard based attack, to P4wnP1's flashdrive, although the driver letter is only known at runtime of the payload.
+
+### Video demo
+
+[![P4wnP1 LockPicker demo youtube](https://img.youtube.com/vi/iZXNQNIpm7s/0.jpg)](https://www.youtube.com/watch?v=iZXNQNIpm7s)
+
+Backdooring Windows Lock Screen
+================================
+
+This payload plants a **backdoor which allows to access a command shell with SYSTEM level privileges from the Windows Lockscreen**. Once planted, the shell is triggered by sticky keys.
+
+The payload itself i purely keyboard based.
+The widely known approach to achieve the payloads's goal, is to replace the `sethc.exe` file. Anyway, this payload does the change based on a registry hack (Debugger property of Image execution options). This means the attack is less noisy, as the filesystem doesn't get touched directly. Additionally the payload shows how to **use P4wnP1's keyboard triggers**. Pressing NUMLOCK multiple times plants the backdoor, while pressing SCROLLLOCK multiple times removes the backdoor again.
+Last but not least, the attack demoes a simple **UAC bypass**, as the PowerShell session used has to be ran with elevated privilegs.
+
+The attack requires an unlocked target runned by an Administrator account.
+
+The payload demoed here isn't published yet.
+
+### Video demo
+
+[![P4wnP1 LockPicker demo youtube](https://img.youtube.com/vi/uu15fIb9vbs/0.jpg)](https://www.youtube.com/watch?v=uu15fIb9vbs)
+
+
+
 HID covert channel frontdoor
 ============================
 
