@@ -3,8 +3,12 @@
 #
 # Sticky keys backdoor
 # - needs Admin privs
-# - multiple presses to numlock enable backdoor
-# - multiple presses to SCROLL disable backdoor
+# - multiple presses to NUMLOCK enable backdoor
+# - multiple presses to SCROLLLOCK disable backdoor
+#
+# Note: RNDIS is enabled for this payload in order to be able to get SSH access
+#       but this isn't needed for the payload to work. In fact it should be disabled to shorten the needed time
+#       for Windows driver installation (don't forget to change the USB_PID if RNDIS is disabled, to force driver reinstall on Windows)
 
 USB_VID="0x1d6b"    # Vendor ID
 USB_PID="0x1004"    # Product ID
@@ -13,7 +17,7 @@ USE_RNDIS=true      # RNDIS network device to enable hash stealing
 USE_HID=true        # HID keyboard to allow entering cracked password
 USE_UMS=false # enable USB Mass Storage
 
-lang="de" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET
+lang="us" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET or remove this line to use the setting from setup.cfg
 
 function onKeyboardUp()
 {

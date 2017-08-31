@@ -15,7 +15,7 @@ USE_UMS=false # enable USB Mass Storage
 # Keyboard language for outhid and duckhid commands
 # possible languages: "be", "br", "ca", "ch", "de", "dk", "es", "fi",
 # 	"fr", "gb", "hr", "it", "no", "pt", "ru", "si", "sv", "tr", "us"
-lang="de" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET
+lang="us" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET
 
 function onKeyboardUp()
 {
