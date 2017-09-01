@@ -39,7 +39,10 @@ Now that the Pi isn't able too receive a DHCP lease, it chooses its own IP with 
 8. Watch the tshark output, till you see an ARP request with an IP (who has 169.254.241.194 in my case)
 9. Stop tshark with `CTRL + C` and grab a copy of the IP.
 10. Configure your `usb0` interface to reside in the same subnet, I choose `169.254.241.1` and thus run the following command:
-`ifconfig usb0 169.254.241.1`
+`ifconfig usb0 169.254.241.1`.
+
+Important: If the interface `usb0` isn't configured to manual setup, it is likely that a DHCP client is running. Trying to retreive a DHCP lease would wipe the IP configuration done in step 10 (ending up with Internet connection loss at some later point). The quick and dirty way to circumvent this on Kali, is to stop the network manager service with `service network-manager stop`
+
 11. test if you could reach out to the Pi with `ping 169.254.241.194`
 12. If everything goes fine, you should now be able to login with `ssh pi@169.254.241.194`
 
