@@ -6,12 +6,15 @@
 # LED init
 # ====================
 
+# create control file and change owner (otherwise it would be created by ledtool.py
+# with owner root, and thus not writable by user pi)
+ledtrigger="/tmp/blink_count"
+echo 255 > $ledtrigger
+chown pi:pi $ledtrigger
+
 # start LED control in background
 python $wdir/ledtool/ledtool.py&
 
-ledtrigger="/tmp/blink_count"
-touch $ledtrigger
-chown pi:pi $ledtrigger
 # led blink function
 function led_blink()
 {

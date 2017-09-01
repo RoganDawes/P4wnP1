@@ -13,6 +13,9 @@ def prepare():
 		f = file(filepath, "w")
 		f.write("255") # continous lit
 		f.close()
+		print "LED control file created"
+	else:
+		print "LED control file exists"
 
 	# setup manual led control
 	with open(ledpath + "trigger", "w") as trigger:
