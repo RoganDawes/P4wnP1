@@ -2,9 +2,9 @@
 
 ## Step 1 - Install Raspbian Lite
  1.  Download: 
- [Jessie Lite image](http://downloads.raspberrypi.org/raspbian/images/raspbian-2017-07-05/) (recomended)
+ [Jessie Lite image](http://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2017-07-05/) 
  or
- [Stretch Lite image](https://www.raspberrypi.org/downloads/raspbian/) 
+ [Stretch Lite image](https://www.raspberrypi.org/downloads/raspbian/) (recomended)
  2. Follow the guide [here](https://www.raspberrypi.org/documentation/installation/installing-images/README.md)
 
 ## Step 2 - Connect the Pi (Zero) to Internet
