@@ -111,3 +111,30 @@ function start_wifi_accesspoint()
 	generate_dnsmasq_wifi_conf
 	dnsmasq -C /tmp/dnsmasq_wifi.conf
 }
+function connect_to_accesspoint()
+{
+	#not sure how to setup dnsmasq and hostapd so this just gets run after the accesspoint was already started
+	sudo ifconfig wlan0 up
+	if [ $(sudo iwlist wlan0 scan | grep $EXISTING_AP_NAME) ]; then
+		# check if /etc/wpa_supplicant/wpa_supplicant.conf exists
+		printf "\"$EXISTING_AP_NAME\" was found\n"
+		if [ $(cat /etc/wpa_supplicant/wpa_supplicant.conf | grep $EXISTING_AP_NAME) ]; then
+			# only connect if its there. connect. if not open accesspoint
+			printf "entry was found, connecting...\n"
+			sudo wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf
+			sudo dhclient wlan0
+			#check if IP was obtained (to lazy to implement)
+		else
+			printf "\nNo entry for Accesspoint \"$EXISTING_AP_NAME\" found! creating one... "
+			if [ $EXISTING_AP_PSK ]; then
+				$wdir/wifi/append_secure_wpa_conf.sh $EXISTING_AP_NAME $EXISTING_AP_PSK
+				printf "success! retrying...\n"
+				connect_to_accesspoint
+			else
+				printf "fail!\n PLEASE SPECIFY EXISTING_AP_PSK or use wifi/append_secure_wpa_conf.sh to generate an AP entry\n"
+			fi
+		fi
+	else
+		printf "\nNetwork \"$EXISTING_AP_NAME\" not found!\n"
+	fi
+}
