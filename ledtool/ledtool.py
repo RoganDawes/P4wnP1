@@ -1,8 +1,12 @@
 #!/usr/bin/python
 import os
+import pwd
+import grp
 import time
 
 filepath = "/tmp/blink_count"
+uid="pi"
+gid="pi"
 ledpath = "/sys/class/leds/led0/"
 DELAY_PAUSE = 0.5
 DELAY_BLINK = 0.2
@@ -13,9 +17,9 @@ def prepare():
 		f = file(filepath, "w")
 		f.write("255") # continous lit
 		f.close()
-		print "LED control file created"
-	else:
-		print "LED control file exists"
+
+		# fix ownership
+		os.chown(filepath, pwd.getpwnam(uid).pw_uid, grp.getgrnam(gid).gr_gid)
 
 	# setup manual led control
 	with open(ledpath + "trigger", "w") as trigger:
