@@ -10,15 +10,14 @@
 USB_VID="0x1D6B"        # Vendor ID
 USB_PID="0x0237"        # Product ID
 
-USE_ECM=true            # if true CDC ECM will be enabled
-USE_RNDIS=true          # if true RNDIS will be enabled
-USE_HID=false            # if true HID (keyboard) will be enabled
-USE_RAWHID=false         # if true HID raw device will be enabled
-USE_UMS=false           # if true USB Mass Storage will be enabled
+USE_ECM=true            # kept enabled as fallback (could allow forwarding connection trough WiFi if added to payload)
+USE_RNDIS=true          # kept enabled as fallback (could allow forwarding connection trough WiFi if added to payload)
+USE_HID=false
+USE_RAWHID=false        
+USE_UMS=false
 
 # disable setting of static routes for all IPv4 addresses
 ROUTE_SPOOF=false
-
 
 WIFI_ACCESSPOINT=true
 WIFI_ACCESSPOINT_NAME="P4wnP1"
@@ -27,3 +26,8 @@ WIFI_ACCESSPOINT_IP="172.24.0.1" # IP used by P4wnP1
 WIFI_ACCESSPOINT_NETMASK="255.255.255.0"
 WIFI_ACCESSPOINT_DHCP_RANGE="172.24.0.2,172.24.0.100" # DHCP Server IP Range
 WIFI_ACCESSPOINT_HIDE_SSID=false # use to hide SSID of WLAN (you have to manually connect to the name given by EIFI_ACCESSPOINT_NAME)
+
+WIFI_CLIENT=true
+WIFI_CLIENT_SSID="YourAPName" # name of target network
+WIFI_CLIENT_PSK="YourAPPassword" # passphrase for target network
+

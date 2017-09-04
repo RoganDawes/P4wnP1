@@ -8,6 +8,11 @@ function check_wifi()
 	if $wdir/wifi/check_wifi.sh; then WIFI=true; else WIFI=false; fi
 }
 
+##########################
+# WiFi AP functions
+##########################
+
+
 function generate_dnsmasq_wifi_conf()
 {
 	cat <<- EOF > /tmp/dnsmasq_wifi.conf
@@ -31,7 +36,6 @@ function generate_dnsmasq_wifi_conf()
 		dhcp-authoritative
 		log-dhcp
 EOF
-
 }
 
 function generate_hostapd_conf()
@@ -111,30 +115,97 @@ function start_wifi_accesspoint()
 	generate_dnsmasq_wifi_conf
 	dnsmasq -C /tmp/dnsmasq_wifi.conf
 }
-function connect_to_accesspoint()
+
+
+##########################
+# WiFi client functions
+##########################
+function generate_wpa_entry()
 {
-	#not sure how to setup dnsmasq and hostapd so this just gets run after the accesspoint was already started
-	sudo ifconfig wlan0 up
-	if [ $(sudo iwlist wlan0 scan | grep $EXISTING_AP_NAME) ]; then
-		# check if /etc/wpa_supplicant/wpa_supplicant.conf exists
-		printf "\"$EXISTING_AP_NAME\" was found\n"
-		if [ $(cat /etc/wpa_supplicant/wpa_supplicant.conf | grep $EXISTING_AP_NAME) ]; then
-			# only connect if its there. connect. if not open accesspoint
-			printf "entry was found, connecting...\n"
-			sudo wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf
-			sudo dhclient wlan0
-			#check if IP was obtained (to lazy to implement)
-		else
-			printf "\nNo entry for Accesspoint \"$EXISTING_AP_NAME\" found! creating one... "
-			if [ $EXISTING_AP_PSK ]; then
-				$wdir/wifi/append_secure_wpa_conf.sh $EXISTING_AP_NAME $EXISTING_AP_PSK
-				printf "success! retrying...\n"
-				connect_to_accesspoint
+
+	#wpa_passphrase $1 $2 | grep -v -e "#psk"
+	# output result only if valid password was used (8..63 characters)
+	res=$(wpa_passphrase $1 $2) && echo "$res" | grep -v -e "#psk"
+}
+
+function scan_for_essid()
+{
+	# scan for given ESSID, needs root privs (sudo appended to allow running from user pi if needed)
+	scanres=$(sudo iwlist wlan0 scan essid "$1")
+
+	if (echo "$scanres" | grep -q -e "$1\""); then # added '"' to the end to avoid partial match
+		#network found
+
+		# check for WPA2
+		if (echo "$scanres" | grep -q -e "IE: IEEE 802.11i/WPA2 Version 1"); then
+			# check for PSK CCMP
+			if (echo "$scanres" | grep -q -e "CCMP" && echo "$scanres" | grep -q -e "PSK"); then
+				echo "WPA2_PSK" # confirm WPA2 usage
 			else
-				printf "fail!\n PLEASE SPECIFY EXISTING_AP_PSK or use wifi/append_secure_wpa_conf.sh to generate an AP entry\n"
+				echo "WPA2 no CCMP PSK"
 			fi
 		fi
+
 	else
-		printf "\nNetwork \"$EXISTING_AP_NAME\" not found!\n"
+		echo "Network $1 not found"
+	fi
+}
+
+function generate_wpa_supplicant_conf()
+{
+	# generates temporary configuration (sudo prepended to allow running from user pi if needed)
+	sudo bash -c "cat /etc/wpa_supplicant/wpa_supplicant.conf > /tmp/wpa_supplicant.conf"
+
+	# ToDo: check if configured WiFi ESSID already exists, 
+	# if
+	#	WIFI_CLIENT_STORE_NETWORK == true
+	#	WIFI_CLIENT_OVERWRITE_PSK == true
+	# delete the network entry, to overwrite in the next step
+	#
+	# if
+	#	WIFI_CLIENT_STORE_NETWORK == false
+	# delete the network entry, to overwrite the old entry in next step (but don't store it later on)
+
+	generate_wpa_entry $1 $2 > /tmp/current_wpa.conf
+	sudo bash -c 'cat /tmp/current_wpa.conf >> /tmp/wpa_supplicant.conf'
+
+	# ToDo: store the new network back to persistent config 
+	# if
+	#	WIFI_CLIENT_STORE_NETWORK == true
+	# cat /tmp/wpa_supplicant.conf > /etc/wpa_supplicant/wpa_supplicant.conf # store config change
+}
+
+function start_wpa_supplicant()
+{
+	# sudo is unneeded, but prepended in case this should be run without root
+
+	# start wpa supplicant as deamon with current config
+	sudo wpa_supplicant -B -i wlan0 -c /tmp/wpa_supplicant.conf
+
+	# start DHCP client on WiFi interface (daemon, IPv4 only)
+	sudo dhclient -4 -nw -lf /tmp/dhclient.leases wlan0
+}
+
+function start_wifi_client()
+{
+
+	sudo ifconfig wlan0 up
+
+	if $WIFI_CLIENT; then
+		echo "Try to find WiFi $WIFI_CLIENT_SSID"
+		res=$(scan_for_essid $WIFI_CLIENT_SSID)
+		if [ $res == "WPA2_PSK" ]; then
+			echo "Network $WIFI_CLIENT_SSID found"
+			echo "... creating config"
+			generate_wpa_supplicant_conf "$WIFI_CLIENT_SSID" "$WIFI_CLIENT_PSK"
+			echo "... connecting ..."
+			start_wpa_supplicant
+
+		else
+			echo "Network $WIFI_CLIENT_SSID not found"
+			return 1 # indicate error
+		fi
+	else
+		return 1 # indicate error
 	fi
 }
