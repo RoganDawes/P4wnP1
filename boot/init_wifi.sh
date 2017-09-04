@@ -66,10 +66,23 @@ function generate_hostapd_conf()
 
 		# Use WPA authentication
 		auth_algs=1
+EOF
 
+	if $WIFI_ACCESSPOINT_HIDE_SSID; then
+	cat <<- EOF >> /tmp/hostapd.conf
+		# Require clients to know the network name
+		ignore_broadcast_ssid=2
+
+EOF
+	else
+	cat <<- EOF >> /tmp/hostapd.conf
 		# Require clients to know the network name
 		ignore_broadcast_ssid=0
 
+EOF
+	fi
+
+	cat <<- EOF >> /tmp/hostapd.conf
 		# Use WPA2
 		wpa=2
 
