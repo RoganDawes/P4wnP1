@@ -14,10 +14,6 @@ The most important sections:
 - HID covert channel backdoor (**this is the new main feature**)
 - Getting started section
 
-If you are interested in which vendor was prone to Rob ‘MUBIX’ Fuller's “Snagging creds from locked machines”, see:
-- Section: Snagging creds from locked machines after MS16-112 (or [here](http://www.oracle.com/technetwork/security-advisory/cpujul2017-3236622.html))
-
-
 
 Introduction
 ============
@@ -33,15 +29,17 @@ External Resources using P4wnP1
 ==================
 
 -    Black Hat Sessions XV, workshop material "Weaponizing the Raspberry Pi Zero" (Workshop material + slides): [BHSXV]
--    ihacklabs[dot]com, tutorial "Red Team Arsenal – Hardware :: P4wnp1 Walkthrough" (Spanish): [IHackLabs]
+-    ihacklabs[dot]com, tutorial "Red Team Arsenal – Hardware :: P4wnp1 Walkthrough" (Spanish): [part 1], [part 2]
 
   [BHSXV]: https://www.madison-gurkha.com/hands-onhacking-raspberrypi-en
-  [IHackLabs]: https://www.ihacklabs.com/es/red-team-arsenal-hardware-p4wnp1-walkthrough-cargando-y-disparando-con-la-raspberry-pi-zero-w-parte-1/
+  [part 1]: https://www.ihacklabs.com/es/red-team-arsenal-hardware-p4wnp1-walkthrough-cargando-y-disparando-con-la-raspberry-pi-zero-w-parte-1/
+  [part 2]: https://www.ihacklabs.com/es/red-team-arsenal-hardware-p4wnp1-walkthrough-cargando-y-disparando-con-la-raspberry-pi-zero-w-parte-2/
 
-P4wnP1 Features
-===============
+P4wnP1 Features(quick summary)
+===============================
 
--	**WiFi Hotspot** for SSH access (Pi Zero W only)
+-	**WiFi Hotspot** for SSH access (Pi Zero W only), support for hidden ESSID
+-	**operate WiFi in client mode** (Pi Zero W only), to relay USB network attacks through WiFi with internet access (MitM)
 -   the USB device features work in **every possible combination** with Windows **Plug and Play** support (class drivers)
 -   Support for device types
 	- **HID covert channel communication device** (see sections 'HID covert channel frontdoor' and 'HID covert channel backdoor')
@@ -53,46 +51,18 @@ P4wnP1 Features
 -   customizeable **bash based payload scripts** (see `payloads/` subfolder for examples example)
 -   includes **Responder** and a precompiled **John the Ripper Jumbo** version
 -   **Auto attack:** P4wnP1 automatically boots to standard shell if an OTG adapter is attached, the current payload only runs if P4wnP1 is connected as USB device to a target (without USB OTG adapter)
-	
-
-Advanced HID Keyboard Features
-------------------------------
-
--   Keyboard payloads could be **triggered by targets main keyboard LEDs** (NUMLOCK, CAPSLOCK and SCROLLLOCK)
--   **dynamic payload branching** based on LED triggers
--   Supports **DuckyScript** (see hid_keyboard2.txt payload for an advanced example)
--   Supports **raw ASCII Output via HID Keyboard** (could be used to print out character based files via keyboard, like `cat /var/log syslog | outhid`)
--   **Multi Keyboard language layout support** (no need to worry about target language when using HID commands)
--   Output starts when target keyboard driver is loaded (no need for manual delays, `onKeyboardUp` callback could be used in payloads)
 
 
-Advanced Network Features
--------------------------
 
--   Fake **RNDIS network interface speed up to 20GB/s** to get the lowest metric and win every fight for the dominating 'default gateway' entry in routing tables, while carrying out network attacks (patch could be found [here](https://github.com/mame82/ratepatch/commits/master) and the README [here](https://github.com/mame82/ratepatch/blob/master/README.md))
--   **Automatic link detection** and interface switching, if a payload enables both RNDIS and ECM network
--   SSH server is running by default, so P4wnP1 could be connected on 172.16.0.1 (as long as the payload enables RNDIS, CDC ECM or both) or on 172.24.0.1 via WiFi
+Payload descritions and video demos of included payloads
+========================================================
 
-
-Advanced payload features
--------------------------
-
--   bash **payloads based on callbacks** (see [`template.txt`](payloads/template.txt) payload for details)
-    - **onNetworkUp** (when target host gets network link active)
-	- **onTargetGotIP** (if the target received an IP, the IP could be accessed from the payload script)
-	- **onKeyboardUp** (when keyboard driver installation on target has finished and keyboard is usable)
-	- **onLogin** (when a user logs in to P4wnP1 via SSH)
-- configuration can be done globally (`setup.cfg`) or overwritten per payload (if the same parameter is defined in the payload script)
-- settings include: 
-    - USB config (Vendor ID, Product ID, **device types to enable** ...)
-    - WiFi config (SSID, password ...)
-	- HID keyboard config (**target keyboard language** etc.)
-	- Network and DHCP config
-	- **Payload Selection**
+As it is a flexible framework, P4wnP1 allows to develop custom payloads only limited by the imagination of the pentester using it.
+To get a basic idea some payloads are already included and described here:
 
 
-Windows LockPicker
-==================
+## Payload: Windows LockPicker
+
 
 This payload extends the "Snagging creds from locked machine" approach, presented by Mubix (see credits), to its obvious successor: 
 
@@ -103,6 +73,9 @@ This payload extends the "Snagging creds from locked machine" approach, presente
 I'm still no video producer, so maybe somebody feels called upon to do a demo.
 Here's my (sh**ty) attempt:
 [![P4wnP1 LockPicker demo youtube](https://img.youtube.com/vi/7fCPsb6quKc/0.jpg)](https://www.youtube.com/watch?v=7fCPsb6quKc)
+
+Here's a version of someone doing this much better, thanks @Seytonic
+[![P4wnP1 LockPicker demo youtube](https://img.youtube.com/vi/KDJKE10LCjM/0.jpg)](https://www.youtube.com/watch?v=KDJKE10LCjM)
 
 
 ### Attack chain (short summary):
@@ -117,8 +90,8 @@ Here's my (sh**ty) attempt:
 
 The payload `Win10_LockPicker.txt` has to be choosen in `setup.cfg` to carry out the attack. **It is important to modify the payloads "lang" parameter to your target's language**. If you attach a HDMI monitor to P4wnP1, you could watch the status output of the attack (including captured hash and plain creds, if you made it this far).
 
-Stealing Browser credentials (hakin9_tutorial)
-==============================================
+## Payload: Stealing Browser credentials (hakin9_tutorial)
+
 
 This payload runs a PowerShell script, typed out via P4wnP1's built-in keyboard, in order to dump stored credentials of Microsoft Edge or Internet Explorer. Fetched credentials are stored to P4wnP1's flashdrive (USB Mass Storage).
 As the name implies, this payload is the result of an hakin9 article on payload development for P4wnP1, which is yet unpublished. For this reason, the payload has RNDIS enabled, although not needed to carry out the attack.
@@ -128,8 +101,8 @@ It's main purpose is to show how to store the result from a keyboard based attac
 
 [![P4wnP1 LockPicker demo youtube](https://img.youtube.com/vi/iZXNQNIpm7s/0.jpg)](https://www.youtube.com/watch?v=iZXNQNIpm7s)
 
-Backdooring Windows Lock Screen
-================================
+## Backdooring Windows Lock Screen
+
 
 This payload plants a **backdoor which allows to access a command shell with SYSTEM level privileges from the Windows Lockscreen**. Once planted, the shell is triggered by sticky keys.
 
@@ -147,16 +120,16 @@ The payload demoed here isn't published yet.
 
 
 
-HID covert channel frontdoor
-============================
+## Payload: HID covert channel frontdoor
 
-Video demo
-----------
+
+### Video demo
+
 
 [![P4wnP1 HID demo youtube](https://img.youtube.com/vi/MI8DFlKLHBk/0.jpg)](https://www.youtube.com/watch?v=MI8DFlKLHBk&yt:cc=on)
 
-HID frontdoor features
-----------------------
+### HID frontdoor features
+
 -    Plug and Play install of HID device on Windows (tested on Windows 7 and Windows 10)
 -    Covert channel based on a raw HID device
 -    Pure **in memory PowerShell payload** - nothing is written to disk
@@ -168,11 +141,11 @@ HID frontdoor features
 -    **Stage 2:** Communications switches to HID channel and gives access to a custom shell on P4wnP1. This could be used to upload and run PowerShell scripts, which are hosted on P4wnP1, directly into memory of the PowerShell process running on the target. This happens without touching disc or using network communications, at any time.
 
 
-HID covert channel backdoor (Pi Zero W only)
-============================================
+## Payload HID covert channel backdoor (Pi Zero W only)
 
-Video demo
-----------
+
+### Video demo
+
 
 [![P4wnP1 HID demo youtube](https://img.youtube.com/vi/Pft7voW5ui8/0.jpg)](https://www.youtube.com/watch?v=Pft7voW5ui8)
 
@@ -180,8 +153,8 @@ The video is produced by @Seytonic, you should check out his youtube channel wit
 
 **@Seytonic** thanks for the great tutorial
 
-HID backdoor features
-----------------------
+### HID backdoor features
+
 - Payload to bridge an Airgap target, by relaying a shell over raw HID and provide it from P4wnP1 via WiFi
 - Plug and Play install of HID device on Windows (tested on Windows 7 and Windows 10)
 - Covert channel based on raw HID
@@ -197,8 +170,8 @@ HID backdoor features
 	- `shell` command to  create remote shell (only with covert channel connection)
 	- server could be accessed with SSH via WiFi when the `hid_backdoor.txt` payload is running
 
-HID backdoor attack chain and usage
------------------------------------
+## HID backdoor attack chain and usage
+
 
 ### 1. Preparation
 
@@ -248,8 +221,8 @@ So that's all
 	- and ... :-) ... `shell`
 - I'm too tired to explain these here, but I guess you'll find it out.
 
-HID backdoor attack - summary
------------------------------
+## HID backdoor attack - summary
+
 1. Choose `hid_backdoor.txt` payload
 2. Connect P4wnP1 device to Windows target
 3. Connect to the newly spawned `P4wnP1` WiFi with a different device (could be a smartphone, as long as a SSH client is installed)
@@ -258,10 +231,54 @@ HID backdoor attack - summary
 6. To fire up the covert channel HID backdoor, issue the command `FireStage1`
 7. After the target connected back, enter `shell` to create a remote shell through the covert channel
 
-Currently missing features
---------------------------
+## HID backdoor - Currently missing features
+
 - File transfer implementation (upload / download) ... but hey... you guys are redteamers and pentesters! You know how to deal with non-interactive remote shells, right? If not go and take an OSCP or something like that, but don't bother me with a feature request for this.
+**Update:** File transfer for HID backdoor is implented wit the commands `upload` and `download` - **so files are move back and forth through a raw HID device now** between P4wnP1 and the target, now
 - Run TCP sockets through the HID channel. Yes, it would be really nice to have a SOCKS4a or SOCKS5 listening on P4wnP1, tunneling comms through the target client. I'm not sure when this will get done, as this PoC project consumed far too much time. But hey, the underlying communication layers are prepared to handle multiple channels and as far as I know, you're staring at the source code, right now!
+
+
+
+P4wnP1 more advanced features (excerpt)
+=======================================
+
+
+Advanced HID Keyboard Features
+------------------------------
+
+-   Keyboard payloads could be **triggered by targets main keyboard LEDs** (NUMLOCK, CAPSLOCK and SCROLLLOCK)
+-   **dynamic payload branching** based on LED triggers
+-   Supports **DuckyScript** (see hid_keyboard2.txt payload for an advanced example)
+-   Supports **raw ASCII Output via HID Keyboard** (could be used to print out character based files via keyboard, like `cat /var/log syslog | outhid`)
+-   **Multi Keyboard language layout support** (no need to worry about target language when using HID commands)
+-   Output starts when target keyboard driver is loaded (no need for manual delays, `onKeyboardUp` callback could be used in payloads)
+
+
+Advanced Network Features
+-------------------------
+
+-   Fake **RNDIS network interface speed up to 20GB/s** to get the lowest metric and win every fight for the dominating 'default gateway' entry in routing tables, while carrying out network attacks (patch could be found [here](https://github.com/mame82/ratepatch/commits/master) and the README [here](https://github.com/mame82/ratepatch/blob/master/README.md))
+-   **Automatic link detection** and interface switching, if a payload enables both RNDIS and ECM network
+-   SSH server is running by default, so P4wnP1 could be connected on 172.16.0.1 (as long as the payload enables RNDIS, CDC ECM or both) or on 172.24.0.1 via WiFi
+-   if both, WiFi client mode and WiFi Access Point mode, are enable - **P4wnP1 fails over to open an Access Point in case the target WiFi isn't reachable** (Pi Zero W only)
+
+
+Advanced payload features
+-------------------------
+
+-   bash **payloads based on callbacks** (see [`template.txt`](payloads/template.txt) payload for details)
+    - **onNetworkUp** (when target host gets network link active)
+	- **onTargetGotIP** (if the target received an IP, the IP could be accessed from the payload script)
+	- **onKeyboardUp** (when keyboard driver installation on target has finished and keyboard is usable)
+	- **onLogin** (when a user logs in to P4wnP1 via SSH)
+- configuration can be done globally (`setup.cfg`) or overwritten per payload (if the same parameter is defined in the payload script)
+- settings include: 
+    - USB config (Vendor ID, Product ID, **device types to enable** ...)
+    - WiFi config (SSID, password ...)
+	- HID keyboard config (**target keyboard language** etc.)
+	- Network and DHCP config
+	- **Payload Selection**
+
 
 Feature Comparison with BashBunny
 =================================
@@ -324,10 +341,10 @@ Requirements
 -   Internet connection to run the `install.sh` script
 -   the project is still work in progress, so features and new payloads are added in frequently (make sure to have an updated copy of P4wnP1 repo)
 
-Snagging creds from locked machines after MS16-112 (Oracle JAVA JRE/JDK vuln)
-=============================================================================
+Snagging creds from locked machines, vulnerable application (Oracle JAVA JRE/JDK vuln)
+======================================================================================
 
-During tests of P4wnP1 a product has been found to answer NTLM authentication requests on wpad.dat on a locked and fully patched Windows 10 machine (including patch for MS16-112). The NTLM hash of the logged in user is sent by a third party software, even if the machine isn’t domain joined. The flaw has been reported to the respective vendor. Details will be added to the readme as soon as a patch is available. For now I’ll recently update the disclosure timeline here.
+During tests of P4wnP1 a product has been found to answer NTLM authentication requests on wpad.dat on a locked and fully patched Windows 10 machine. The NTLM hash of the logged in user is sent by a third party software, even if the machine isn’t domain joined. The flaw has been reported to the respective vendor. Details will be added to the readme as soon as a patch is available. For now I’ll recently update the disclosure timeline here.
 
 Disclosure Timeline discovered NTLM hash leak:
 
