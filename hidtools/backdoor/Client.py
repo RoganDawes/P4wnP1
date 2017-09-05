@@ -35,8 +35,8 @@ class Client(object):
 
     def get_next_method_id(self):
         next = self.__next_method_id
-        # increase next_method id and cap to 0xFFFFFFFF
-        self.__next_method_id = (self.__next_method_id + 1) & 0xFFFFFFFF
+        # increase next_method id and cap to 0x7FFFFFFF
+        self.__next_method_id = (self.__next_method_id + 1) & 0x7FFFFFFF
         return next
 
     def reset_state(self):
