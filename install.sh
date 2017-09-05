@@ -1,31 +1,30 @@
 #!/bin/bash
+
+#    This file is part of P4wnP1.
 #
-# P4wnP1 (PiZero IPv4 traffic interceptor and USB hash stealer)
-# setup script
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+
+# P4wnP1 install script.
 #       Author: Marcus Mengs (MaMe82)
 #
 # Notes:
-#       - install.sh should only be run ONCE
-#       - work in progress (contains possible errors and typos)
+#   - install.sh should only be run ONCE
+#   - work in progress (contains possible errors and typos)
 #	- the script needs an Internet connection to install the required packages
-#
-# ToDo
-# - [done] enable autologin
-# - [done, not tested] setup correct overlay FS (set "dwoverlay=dwc2" in /boot/config.txt")
-# - [done, not tested] add "libcomposite" to /etc/modules
-# - [done] create entries in /etc/network/interfaces to exclude RNDIS/ECM from automatic configuration
-# - [nothing to do right now] do not: create init.d service to setup USB gadgets on boot, us .profile instead
-# - [done, untested] patch /home/pi/.profile to contain "sudo /home/pi/startup_p4wnp1.sh" as the script is meant to be runned
-#   in interactive mode. This is needed to be able to abort the "Link detection mode". In order to have
-#   the script running at startup autologin has to be enabled for the user pi!
-# - [done] set DNS entry in /etc/resolv.conf in order to connect to Internet via target host if needed
-#	Putting a nameserver into /etc/resolv.conf is neeeded during setup, as it got reset to 127.0.0.1 during
-#	apt-get install... (may be caused by dnsmasq package)
-# - [done] implement checks to see of all requirements are met (raspbian jessie, auto logon, packages ...)
-# - [open] revert changes in case something fails (could be used to uninstall)
-# - [done] check if /boot/cmdline.txt has been changed to load USB gadget modules (modules-load=dwc2,g_ether) and undo this additions
-# - download and extract of JtR jumbo has to be added (https://github.com/mame82/john-1-8-0-jumbo_raspbian_jessie_precompiled)
-#	--> used by get_and_crack_last.sh
 
 
 # get DIR the script is running from (by CD'ing in and running pwd

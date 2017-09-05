@@ -1,27 +1,35 @@
 #!/bin/sh
+
+#    This file is part of P4wnP1.
 #
-# P4wnP1 (PiZero IPv4 traffic interceptor and USB hash stealer)
-# startup script
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+#
+# P4wnP1 startup script
 # 	Author:	Marcus Mengs (MaMe82)
 #
 # Notes:
-# 	- setup_p4wnp1.sh should be ran before using this script
-#	- refer to comments for "inner workings"
 #	- work in progress (contains possible errors and typos)
 #	- if the device isn't detected changing the USB port (USB 2.0 prefered) or plug out and in
 #	  again could help
-#	- ssh service should be running, so your're able to connect with
-#		$ ssh pi@172.16.0.1
-#
 #
 # ToDo:
 #	- add manual system date adjusment, to not mess up logs due to missing NTP (store datetime of last boot)
-#	- after implementing multiple stages, add in LED support to highlight which stage currently is ran
-#	  by  P4wnP1 (done, "led_blink" function is available to payload scripts)
 #	- add shutdown capability to script, to allow file system syncing before power loss (could be done from 
 #	payload by calling "sync && sudo halt")
-#	- detect if HID works (send CAPS_LOCK and read back LED byte), add payload callback onHIDstarted (done 
-#	by function "key_trigger" available from payload scripts)
 
 
 # find working dir of script
