@@ -214,7 +214,7 @@ function start_wifi_client()
 	if $WIFI_CLIENT; then
 		echo "Try to find WiFi $WIFI_CLIENT_SSID"
 		res=$(scan_for_essid $WIFI_CLIENT_SSID)
-		if [ $res == "WPA2_PSK" ]; then
+		if [ "$res" == "WPA2_PSK" ]; then
 			echo "Network $WIFI_CLIENT_SSID found"
 			echo "... creating config"
 			generate_wpa_supplicant_conf "$WIFI_CLIENT_SSID" "$WIFI_CLIENT_PSK"
