@@ -59,10 +59,11 @@ source $wdir/boot/init_wifi.sh
 check_wifi
 if $WIFI; then
 	echo "P4wnP1: Seems WiFi module is present !"
-	
+	iw reg set $WIFI_REG
 	# start WIFI client
 	if $WIFI_CLIENT; then
 		# try to connect to existing WiFi according to the config
+		sleep 1 # pause to make new reg domain accessible in scan
 		if start_wifi_client; then
 			WIFI_CLIENT_CONNECTION_SUCCESS=true
 		else
