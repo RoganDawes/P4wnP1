@@ -220,7 +220,7 @@ function start_wifi_client()
 			generate_wpa_supplicant_conf "$WIFI_CLIENT_SSID" "$WIFI_CLIENT_PSK"
 			echo "... connecting ..."
 			start_wpa_supplicant
-
+			return 0
 		else
 			echo "Network $WIFI_CLIENT_SSID not found"
 			return 1 # indicate error

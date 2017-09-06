@@ -65,6 +65,9 @@ if $WIFI; then
 		# try to connect to existing WiFi according to the config
 		if start_wifi_client; then
 			WIFI_CLIENT_CONNECTION_SUCCESS=true
+		else
+			echo "P4wnP1: Join present WiFi didn't succeed, failing over to access point mode"
+			WIFI_CLIENT_CONNECTION_SUCCESS=false
 		fi
 	fi
 		
