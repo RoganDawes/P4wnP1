@@ -135,6 +135,10 @@ if $USB_ETHERNET; then
 	)&
 fi
 
+# take care of AutoSSH reachback
+source $wdir/boot/init_autossh.sh
+start_autossh # start_autossh takes care of checking AUTOSSH_ENABLED
+
 if $USE_HID; then
 	# import keyboard functions
 	source $wdir/boot/init_hid_keyboard.sh

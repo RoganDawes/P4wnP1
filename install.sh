@@ -61,7 +61,7 @@ sudo apt-get update
 #fi
 
 # hostapd gets installed in even if WiFi isn't present (SD card could be moved from "Pi Zero" to "Pi Zero W" later on)
-sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools hostapd
+sudo apt-get install -y dnsmasq git python-pip python-dev screen sqlite3 inotify-tools hostapd autossh
 
 
 # not needed in production setup
@@ -205,6 +205,21 @@ echo "Installing kernel update, which hopefully makes USB gadgets work again"
 #        stretch kernel known working is 4.9.45+ (only available via update right now)
 sudo rpi-update
 
+echo "Generating keypair for use with AutoSSH..."
+source $wdir/setup.cfg
+ssh-keygen -q -N "" -C "P4wnP1" -f $AUTOSSH_PRIVATE_KEY && SUCCESS=true
+if $SUCCESS; then
+        echo "... keys created"
+        echo
+        echo "Use \"$wdir/ssh/pushkey.sh\""
+        echo "in order to promote the public key to a remote SSH server"
+else
+	echo "Creation of SSH key pair failed!"
+fi
+
+
+echo
+echo
 echo "===================================================================================="
 echo "If you came till here without errors, you shoud be good to go with your P4wnP1..."
 echo "...if not - sorry, you're on your own, as this is work in progress"

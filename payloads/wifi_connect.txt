@@ -50,3 +50,37 @@ WIFI_CLIENT=true
 WIFI_CLIENT_SSID="YourAPName" # name of target network
 WIFI_CLIENT_PSK="YourAPPassword" # passphrase for target network
 
+# The AutoSSH section enables a SSH reachback to a custom external SSH server
+# working like this:
+#   1) the target server is defined by AUTOSSH_REMOTE_HOST, the user by
+#      AUTOSSH_REMOTE_USER
+#   2) P4wnP1 continuously attempts to login to this SSH server, using the 
+#      private key provided with AUTOSSH_PRIVATE_KEY
+#   3) In order to allow the login to succeed, the user defined by AUTOSSH_REMOTE_USER
+#      has to have the public key from AUTOSSH_PUBLIC_KEY present in his
+#      ~/.ssh/authorized_keys file (the script P4wnP1_working_dir/ssh/pushkey.sh
+#      can be used to help publishing the public key to the SSH server)
+#   4) As soon as P4wnP1 is able to access the Internet (for example if the WIFI_CLIENT
+#      connection succeeds and grants Internet access) the attempts to connect to 
+#      the remote SSH server should succeed
+#   5) On connection success, P4wnP1's SSH port 22 is forwarded to the
+#      remote SSH server port given by AUTOSSH_REMOTE_PORT (only local host)
+#   6) If you login in to the remote SSH server from a different device
+#      you are able to connect back to P4wnP1 using
+#	  ssh -p 8765 pi@localhost
+#      
+#      The port '8765' has to be replaced with the port configured
+#      by AUTOSSH_REMOTE_PORT.
+#
+# Note: The public and private SSH key files used here, are generated
+#       during P4wnP1 install and not packed into the P4wnP1 repo
+#       (to assure a unique key pair).
+#       If you want to (re)create a key pair, use the script in
+#       `P4wnP1_working_dir/ssh/genkeys.sh
+
+AUTOSSH_ENABLED=true # enable AutoSSH
+AUTOSSH_REMOTE_HOST="remoteSSHServer.com"
+AUTOSSH_REMOTE_USER=root 
+AUTOSSH_PRIVATE_KEY="$wdir/ssh/keys/P4wnP1_id"
+AUTOSSH_PUBLIC_KEY="$wdir/ssh/keys/P4wnP1_id.pub" 
+AUTOSSH_REMOTE_PORT=8765 
