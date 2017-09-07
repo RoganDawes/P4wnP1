@@ -82,6 +82,7 @@ WIFI_CLIENT=true
 WIFI_CLIENT_SSID="ESSID-of-upstream-WLAN" # name of target network
 WIFI_CLIENT_PSK="passphrase of upstream wlan" # passphrase for target network
 
+WIFI_REG=US # WiFi regulatory domain (if not set accordingly, WiFi could be missing and client connection fail)
 
 # Setup WiFi access point (used as failover in case the target WiFi WIFI_CLIENT_SSID isn't present)
 # ------------------------------------------------------------------------------------------------

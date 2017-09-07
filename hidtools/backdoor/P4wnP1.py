@@ -256,7 +256,11 @@ Use "help FireStage1" to get more details.
 			pending_methods = self.client.getPendingMethods()
 
 			for method_id in pending_methods.keys():
-				method = pending_methods[method_id]
+				try:
+					method = pending_methods[method_id]
+				except KeyError:
+					# the method was removed, because it finished execution meanwhile
+					P4wnP1.print_debug("Output for the pending method with ID {0} couldn't be processed, method doesn't exist.")
 
 				# check if method run has already been requested from client, do it if not
 				if not method.run_requested:
