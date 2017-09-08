@@ -9,9 +9,14 @@ An example for a more sophisticated payload running without WiFi is the "HID fro
 
 ### How to connect P4wnP1 to Internet, once installed ?
 
+#### Method 1
 Here's a little tutorial video, showing the steps on Windows 10. Requirement: `network-only.txt`payload has to be running.
 
 [video link](https://youtu.be/QEWaIoal5qU)
+
+#### Method 2
+Edit the variables that start with "WIFI_CLIENT" to match the credentials with an existing accesspoint with ethernet connectivity and set WIFI_CLIENT to true.
+P4wnP1 will connect to this accesspoint instead of starting one.
 
 ### Does this run on other ARM devices?
 P4wnP1 uses several features specific to raspbian. Among others: 
