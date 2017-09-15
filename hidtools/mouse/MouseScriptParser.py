@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from hid_mouse import hid_mouse
 import time
+import sys
 
 class MouseScriptParser:
 	def __init__(self):
@@ -130,19 +131,30 @@ class MouseScriptParser:
 		self.DO_UPDATE(argv)
 		self.DO_DELAY(argv)
 
-# test
-p = MouseScriptParser()
-with open("/home/pi/P4wnP1/MouseScripts/test_rel.txt", "rb") as f:
-	lines = f.readlines()
-	commands = []
-	for l in lines:
-		print l
+def main(args):
+	p = MouseScriptParser()
 
-		extracted = p.extract_command(l)
-		if extracted:
-			commands.append(extracted)
+	source = []
+	for line in sys.stdin:
+		source.append(line)
 
-	for command in commands:
-		cmd, argv = command
-		p.dispatch_command(cmd, argv)
-#	print text
+	if len(source) > 0:
+#	with open("/home/pi/P4wnP1/MouseScripts/test_rel.txt", "rb") as f:
+#		lines = f.readlines()
+		commands = []
+		for l in source:
+			print l
+
+			extracted = p.extract_command(l)
+			if extracted:
+				commands.append(extracted)
+
+		for command in commands:
+			cmd, argv = command
+			p.dispatch_command(cmd, argv)
+	#	print text
+
+
+if __name__ == "__main__":
+        main(sys.argv[1:])
+
