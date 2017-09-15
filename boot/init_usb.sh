@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 
 #    This file is part of P4wnP1.
@@ -115,6 +115,17 @@ function init_usb()
 		cat $wdir/conf/raw_report_desc > functions/hid.g2/report_desc
 	fi
 
+	# create HID mouse function
+	# =======================================================
+	if $USE_HID_MOUSE; then
+		mkdir -p functions/hid.g3
+		echo 2 > functions/hid.g3/protocol
+		echo 1 > functions/hid.g3/subclass
+		echo 6 > functions/hid.g3/report_length
+
+		cat $wdir/conf/mouse_combined_desc > functions/hid.g3/report_desc
+	fi
+
 	# Create USB Mass storage
 	# ==============================
 	if $USE_UMS; then
@@ -171,6 +182,10 @@ function init_usb()
 
 	if $USE_RAWHID; then
 		ln -s functions/hid.g2 configs/c.1/ # HID on config 1
+	fi
+
+	if $USE_HID_MOUSE; then
+		ln -s functions/hid.g3 configs/c.1/ # HID mouse on config 1
 	fi
 
 	if $USE_ECM; then
