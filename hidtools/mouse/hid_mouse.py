@@ -7,16 +7,16 @@ class hid_mouse(object)	:
 		self.button1 = False
 		self.button2 = False
 		self.button3 = False
-		self.x_abs = 0.0
-		self.y_abs = 0.0
+		self._x_abs = 0.0
+		self._y_abs = 0.0
 		self.outf = outfile
 		self._abs = absolute
 		self.bleft = 0
 		self.bright = 32767
 		self.btop = 0
 		self.bbottom = 32767
-		self.x_abs_short = self.bleft
-		self.y_abs_short = self.btop
+		self._x_abs_short = self.bleft
+		self._y_abs_short = self.btop
 		self._x_rel = 0
 		self._y_rel = 0
 
@@ -35,7 +35,7 @@ class hid_mouse(object)	:
 	def y_rel(self):
 		return self._y_rel
 
-	@x_rel.setter
+	@y_rel.setter
 	def y_rel(self, value):
 		# in case the last coordinate change was relative, we disable absolute mode
 		self._abs = False
@@ -43,28 +43,28 @@ class hid_mouse(object)	:
 		self._y_rel = value
 
 	@property
-	def x(self):
-		return self.x_abs
+	def x_abs(self):
+		return self._x_abs
 
-	@x.setter
-	def x(self, value):
+	@x_abs.setter
+	def x_abs(self, value):
 		# in case the last coordinate change was absolute, we enable absolute mode
 		self._abs = True
 
-		self.x_abs = self.clamp_float(value)
-		self.x_abs_short = self.scaled_short(self.x_abs, self.bleft, self.bright)
+		self._x_abs = self.clamp_float(value)
+		self._x_abs_short = self.scaled_short(self._x_abs, self.bleft, self.bright)
 
 	@property
-	def y(self):
-		return self.y_abs
+	def y_abs(self):
+		return self._y_abs
 
-	@y.setter
-	def y(self, value):
+	@y_abs.setter
+	def y_abs(self, value):
 		# in case the last coordinate change was absolute, we enable absolute mode
 		self._abs = True
 
-		self.y_abs = self.clamp_float(value)
-		self.y_abs_short = self.scaled_short(self.y_abs, self.btop, self.bbottom)
+		self._y_abs = self.clamp_float(value)
+		self._y_abs_short = self.scaled_short(self._y_abs, self.btop, self.bbottom)
 
 	def clamp_float(self, val):
 		return min(max(0.0, val), 1.0)
@@ -83,20 +83,20 @@ class hid_mouse(object)	:
 		return scaled
 
 	def gen_out_report_abs(self):
-		#xout = hid_mouse.convert_pos_short(self.x_abs)
-		xout = struct.pack("<h", int(self.x_abs_short)) # signed short, little endian
+		#xout = hid_mouse.convert_pos_short(self._x_abs)
+		xout = struct.pack("<h", int(self._x_abs_short)) # signed short, little endian
 
-		#yout = hid_mouse.convert_pos_short(self.y_abs)
-		yout = struct.pack("<h", int(self.y_abs_short)) # signed short, little endian
+		#yout = hid_mouse.convert_pos_short(self._y_abs)
+		yout = struct.pack("<h", int(self._y_abs_short)) # signed short, little endian
 
 		btnout = hid_mouse.convert_btn_byte(self.button1, self.button2, self.button3)
 		return "\x02" + btnout + xout + yout
 
 	def gen_out_report_rel(self):
-		#xout = hid_mouse.convert_pos_short(self.x_abs)
+		#xout = hid_mouse.convert_pos_short(self._x_abs)
 		xout = struct.pack("<b", int(self._x_rel)) # signed short, little endian
 
-		#yout = hid_mouse.convert_pos_short(self.y_abs)
+		#yout = hid_mouse.convert_pos_short(self._y_abs)
 		yout = struct.pack("<b", int(self._y_rel)) # signed short, little endian
 
 		btnout = hid_mouse.convert_btn_byte(self.button1, self.button2, self.button3)
@@ -105,7 +105,7 @@ class hid_mouse(object)	:
 	def fire_report(self):
 		with open(self.outf, "wb") as f:
 			if self._abs:
-				print "absolute x: {0} ({1})\ty: {2} ({3})".format(self.x_abs, self.x_abs_short, self.y_abs, self.y_abs_short)
+				print "absolute x: {0} ({1})\ty: {2} ({3})".format(self._x_abs, self._x_abs_short, self._y_abs, self._y_abs_short)
 				f.write(self.gen_out_report_abs())
 			else:
 				print "relative x: {0} \ty: {1}".format(self.x_rel, self.y_rel)

@@ -1,99 +1,135 @@
-MOVE 10 0
-UPDATEDELAYED 500
-MOVE 0 10
-UPDATEDELAYED 500
-MOVE -10 0
-UPDATEDELAYED 500
-MOVE 0 -10
-UPDATEDELAYED 500
+# test relative positioning
+#DELAY 5000
+MOVE 100 0
+DELAY 500
+MOVE 0 100
+DELAY 500
+MOVE -100 0
+DELAY 500
+MOVE 0 -100
+DELAY 500
 
 
-BUTTONS 1 0 0
-UPDATE
-MOVETO 0.0 0.5
-UPDATEDELAYED 1000
-MOVETO 0.1 0.5
-UPDATEDELAYED 1000
-MOVETO 0.2 0.5
-UPDATEDELAYED 1000
-MOVETO 0.3 0.5
-UPDATEDELAYED 1000
-MOVETO 0.4 0.5
-UPDATEDELAYED 1000
-MOVETO 0.5 0.5
-UPDATEDELAYED 1000
-MOVETO 0.6 0.5
-BUTTONS 0 0 0
-UPDATEDELAYED 1000
-MOVETO 0.7 0.5
-UPDATEDELAYED 1000
-MOVETO 0.8 0.5
-UPDATEDELAYED 1000
-MOVETO 0.9 0.5
-UPDATEDELAYED 1000
-MOVETO 1.0 0.5
-UPDATEDELAYED 1000
+# test absolute positioning (x / y are float values between 0.0 and 1.0 covering the whole screen)
+MOVETO 0.5 0.5 # center
+DELAY 500
+MOVETO 0.1 0.1 # near TOP LEFT CORNER
+DELAY 500
+
+# Try to hit start button on Windows
+MOVETO 0.01 0.99 # BOTTOM LEFT
+CLICK 1 0 0 # LEFT CLICK
+DELAY 500
+CLICK 1 0 0 # LEFT CLICK again to close start dialog
+
+# PAUSE EXECUTION
+DELAY 2000
+
+# The following part is tested with paint (FullScreen canvas, to allow drawing)
+#######################################
 
 
+# Paint a house using relative positioning, should show inaccuracy due to mouse acceleration
+MOVETO 0.6 0.5 # center, offset right
+CLICK 1 0 0 # click into paint window to activate
 
-MOVETO 0.5 0.5
-UPDATEDELAYED 1000
+MOVE -50 50 #
+BUTTONS 1 0 0 # press left button (don't release)
+MOVE 0 -100
+DELAY 500
 
-MOVETO 0.5 0.2
-UPDATEDELAYED 1500
-MOVETO 0.8 0.5
-UPDATEDELAYED 1500
-MOVETO 0.5 0.8
-UPDATEDELAYED 1500
-MOVETO 0.2 0.5
-UPDATEDELAYED 1500
+MOVE 100 0
+DELAY 500
 
-MOVETO 0.5 0.5
-UPDATE
+MOVE -100 100
+DELAY 500
 
-DOUBLECLICK 1 0 0
+MOVE 100 0
+DELAY 500
 
-#BUTTONS 1 0 0
-#UPDATEDELAYED 200
-#BUTTONS 0 0 0
-#UPDATE
+MOVE -100 -100
+DELAY 500
 
+MOVE 50 -50
+DELAY 500
 
+MOVE 50 50
+DELAY 500
 
-# RELEASE ALL BUTTONS
-BUTTONS 0 0 0
-# PREPARE RELATIVE MOVE
-#MOVE 127 -127
-# UPDATE MOSE
-UPDATE
+MOVE 0 100
+DELAY 500
 
-DELAY 1000
-
-# ISSUE RIGHT CLICK
-CLICK 0 1 0
-
-# ISSUE DOUBLE CLICK WITH LEFT BUTTON
-DOUBLECLICK 1 0 0
+BUTTONS 0 0 0 # release all buttons
 
 
-# MOVE MOUSE WHILE LEFT BUTTON IS HOLD DOWN, RELEASE BUTTON IN THE END
-######################################################################
+DELAY 2000
 
-BUTTONS 1 0 0
-#MOVE 10 0 # set relative movement to 10 on x-axis
-UPDATEDELAYED 100 # updates the physical mouse, but delays execution by 100 ms
-REPEAT 20 # REPEAT UPDATE OF PHYSICAL MOUSE 20 TIMES (BUTTON STATE AND RELATIVE MOVE POSITION IS PRESERVED)
+# Paint a house using relative positioning, but devide the move into
+# very small mouse moves, to overcome positioning issues due to mouse acceleration
 
-BUTTONS 0 0 0
-UPDATE # RELEASE BUTTON
+MOVETO 0.4 0.5 # center, offset left
+
+MOVESTEPPED -250 250 #
+BUTTONS 1 0 0 # press left button (don't release)
+MOVESTEPPED 0 -500
+DELAY 500
+
+MOVESTEPPED 500 0
+DELAY 500
+
+MOVESTEPPED -500 500
+DELAY 500
+
+MOVESTEPPED 500 0
+DELAY 500
+
+MOVESTEPPED -500 -500
+DELAY 500
+
+MOVESTEPPED 250 -250
+DELAY 500
+
+MOVESTEPPED 250 250
+DELAY 500
+
+MOVESTEPPED 0 500
+DELAY 500
+
+BUTTONS 0 0 0 # release all buttons
 
 
+# Paint the house using absolute positioning, doesn't need steps, but coordinate
+# conversion to account for aspect ratio
 
-# test for some malformed commands
-BUTTONS 1   0      1	# large spaces
-	BUTTONS	2	0	2	# TAB instead of single space
-BUTTONS 3   0		# missing arguments
-butTONs 4 0 0		# partial lowercase
-    butTONs 5 2 3	# leading spaces
-CLICK			# no args at all, delimited by TAB instead of space
+
+DELAY 2000
+
+MOVETO 0.25 0.55 
+BUTTONS 1 0 0 # press left button (don't release)
+
+MOVETO 0.25 0.45 #1
+DELAY 500
+
+MOVETO 0.35 0.45 #2
+DELAY 500
+
+MOVETO 0.25 0.55 #3
+DELAY 500
+
+MOVETO 0.35 0.55 # 4
+DELAY 500
+
+MOVETO 0.25 0.45 # 5
+DELAY 500
+
+MOVETO 0.3 0.4 # 6
+DELAY 500
+
+MOVETO 0.35 0.45 #7
+DELAY 500
+
+MOVETO 0.35 0.55 #8
+DELAY 500
+
+BUTTONS 0 0 0 # release all buttons
 

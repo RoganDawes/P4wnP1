@@ -6,8 +6,15 @@ import sys
 class MouseScriptParser:
 	def __init__(self):
 		# stores valid commands + minimum argument count
-		self.valid_commands = {"BUTTONS": 3, "MOVE": 2, "MOVETO": 2, "DELAY": 1, "CLICK": 3, "DOUBLECLICK": 3, "UPDATEDELAYED": 1, "REPEAT": 1, "UPDATE": 0}
-		self.mouse = hid_mouse(False, "/dev/hidg2")
+		self.valid_commands = {"BUTTONS": 3, "MOVE": 2, "MOVESTEPS": 3, "MOVESTEPPED": 2, "MOVETO": 2, "DELAY": 1, "CLICK": 3, "DOUBLECLICK": 3, "UPDATEDELAYED": 1, "REPEAT": 1, "UPDATE": 0}
+		devfile = ""
+		try:
+			with open("/tmp/device_hid_mouse", "rb") as f:
+				devfile = f.readline().replace("\n", "")
+		except IOError:
+			print "/tmp/device_hid_mouse missing, mouse seems to be disabled!"
+			sys.exit()
+		self.mouse = hid_mouse(False, devfile)
 
 	def extract_command(self, line):
 		# try to split into command + args
@@ -75,7 +82,11 @@ class MouseScriptParser:
 		else:
 			self.mouse.button3 = True
 
+		self._sendMouseReport()
 
+	def _sendMouseReport(self):
+		self.mouse.fire_report()
+			
 	def DO_MOVE(self, argv):
 		# ToDo: Command could be extended to support 3rd relative axis for mousewheel (implementation in hid_mouse.py + change of HID descriptor)
 		print "MOVE method {0}".format(argv)
@@ -86,14 +97,63 @@ class MouseScriptParser:
 
 		self.mouse.x_rel = x
 		self.mouse.y_rel = y
+		
+		self._sendMouseReport()
+		
+		# reset relative position, to avoid sending it again when a report for button press is generated
+		self.mouse.x_rel = 0
+		self.mouse.y_rel = 0
+		
+	def DO_MOVESTEPPED(self, argv):
+		x = int(float(argv[0])) # be sure to convert float to int
+		y = int(float(argv[1])) # be sure to convert float to int
+		steps = max(abs(x), abs(y))
+		
+		argv.append(str(steps))
+		self.DO_MOVESTEPS(argv)
+		
+	def DO_MOVESTEPS(self, argv):
+		# ToDo: Command could be extended to support 3rd relative axis for mousewheel (implementation in hid_mouse.py + change of HID descriptor)
+		print "MOVESTEPS method {0}".format(argv)
+		x = int(float(argv[0])) # be sure to convert float to int
+		#x = min(127, max(-127, x))
+		y = int(float(argv[1])) # be sure to convert float to int
+		#y = min(127, max(-127, y))
+
+		steps = int(float(argv[2]))
+		if steps < 1:
+			steps = 1
+
+		dx = float(x) / float(steps)
+		dy = float(y) / float(steps)
+		
+		cur_x = 0
+		cur_y = 0
+		
+		for cur_step in range(1, steps+1):
+			desired_x = int(round(dx * cur_step))
+			desired_y = int(round(dy * cur_step))
+			step_x = desired_x - cur_x
+			step_y = desired_y - cur_y
+			self.mouse.x_rel = step_x
+			self.mouse.y_rel = step_y
+			self._sendMouseReport()
+			cur_x += step_x
+			cur_y += step_y
+		
+		# reset relative position, to avoid sending it again when a report for button press is generated
+		self.mouse.x_rel = 0
+		self.mouse.y_rel = 0
 
 	def DO_MOVETO(self, argv):
 		print "MOVETO method {0}".format(argv)
 		x = float(argv[0])
 		y = float(argv[1])
 
-		self.mouse.x = x
-		self.mouse.y = y
+		self.mouse.x_abs = x
+		self.mouse.y_abs = y
+		
+		self._sendMouseReport()
 
 	def DO_DELAY(self, argv):
 		print "DELAY method {0}".format(argv)
@@ -101,22 +161,22 @@ class MouseScriptParser:
 
 	def DO_UPDATE(self, argv):
 		print "UPDATE method {0}".format(argv)
-		self.mouse.fire_report()
+		self._sendMouseReport()
 
 	def DO_CLICK(self, argv):
 		print "CLICK method {0}".format(argv)
 		# clear button state
 		self.DO_BUTTONS(['0', '0', '0']) # more correct: only button which have to be clicked should be released here
-		self.DO_UPDATE(argv)
+		#self._sendMouseReport()
 		# press buttons
 		self.DO_BUTTONS(argv)
-		self.DO_UPDATE(argv)
+		#self._sendMouseReport()
 
 		# NOTE: Seems there's no delay needed between pressing and releasing, otherwise it has to be placed here
 
 		# releas buttons again
 		self.DO_BUTTONS(['0', '0', '0']) # more correct: only button which have been clicked should be released here
-		self.DO_UPDATE(argv)
+		#self._sendMouseReport()
 
 
 	def DO_DOUBLECLICK(self, argv):
