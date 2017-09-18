@@ -207,6 +207,9 @@ sudo rpi-update
 
 echo "Generating keypair for use with AutoSSH..."
 source $wdir/setup.cfg
+
+mkdir -p -- "$(dirname -- "$AUTOSSH_PRIVATE_KEY")"
+
 ssh-keygen -q -N "" -C "P4wnP1" -f $AUTOSSH_PRIVATE_KEY && SUCCESS=true
 if $SUCCESS; then
         echo "... keys created"
