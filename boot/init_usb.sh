@@ -99,6 +99,7 @@ function init_usb()
 	# =======================================================
 	if $USE_HID; then
 		mkdir -p functions/hid.g1
+		PATH_HID_KEYBOARD="/sys/kernel/config/usb_gadget/$GADGETS_DIR/functions/hid.g1/dev"
 		echo 1 > functions/hid.g1/protocol
 		echo 1 > functions/hid.g1/subclass
 		echo 8 > functions/hid.g1/report_length
@@ -109,6 +110,7 @@ function init_usb()
 	# =======================================================
 	if $USE_RAWHID; then
 		mkdir -p functions/hid.g2
+		PATH_HID_RAW="/sys/kernel/config/usb_gadget/$GADGETS_DIR/functions/hid.g2/dev"
 		echo 1 > functions/hid.g2/protocol
 		echo 1 > functions/hid.g2/subclass
 		echo 64 > functions/hid.g2/report_length
@@ -119,6 +121,7 @@ function init_usb()
 	# =======================================================
 	if $USE_HID_MOUSE; then
 		mkdir -p functions/hid.g3
+		PATH_HID_MOUSE="/sys/kernel/config/usb_gadget/$GADGETS_DIR/functions/hid.g3/dev"
 		echo 2 > functions/hid.g3/protocol
 		echo 1 > functions/hid.g3/subclass
 		echo 6 > functions/hid.g3/report_length
@@ -209,6 +212,24 @@ function init_usb()
 
 	# time to breath
 	sleep 0.2
+	
+	
+	ls -la /dev/hidg*
+	# store device names to file 
+	##############################
+	if $USE_HID; then
+		udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_KEYBOARD) > /tmp/device_hid_keyboard
+	fi
+	
+	if $USE_RAWHID; then
+		udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_RAW) > /tmp/device_hid_raw
+	fi
+	
+	if $USE_HID_MOUSE; then
+		udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_MOUSE) > /tmp/device_hid_mouse
+	fi
+	
+	ls -la /dev/hidg*
 }
 
 # this could be use to re init USB gadget with different settings

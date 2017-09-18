@@ -101,6 +101,9 @@ sudo update-rc.d networking disable
 sudo update-rc.d avahi-daemon disable
 sudo update-rc.d dnsmasq disable # we start this by hand later on
 
+echo "Create udev rule for HID devices..."
+# rule to set access rights for /dev/hidg* to 0666 
+echo 'SUBSYSTEM=="hidg",KERNEL=="hidg[0-9]", MODE="0666"' > /lib/udev/rules.d/99-usb-hid.rules
 
 echo "Enable SSH server..."
 sudo update-rc.d ssh enable
@@ -207,6 +210,9 @@ sudo rpi-update
 
 echo "Generating keypair for use with AutoSSH..."
 source $wdir/setup.cfg
+
+mkdir -p -- "$(dirname -- "$AUTOSSH_PRIVATE_KEY")"
+
 ssh-keygen -q -N "" -C "P4wnP1" -f $AUTOSSH_PRIVATE_KEY && SUCCESS=true
 if $SUCCESS; then
         echo "... keys created"
