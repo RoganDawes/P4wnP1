@@ -1,4 +1,22 @@
 #!/usr/bin/python
+
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
 import struct
 import sys
 
@@ -70,16 +88,16 @@ class hid_mouse(object)	:
 		return min(max(0.0, val), 1.0)
 
 	def scaled_short(self, val, lower, upper):
-		print "val {0}".format(val)
+		#print "val {0}".format(val)
 		lower = min(max(-32768, lower), 32767)
 		upper = min(max(-32768, upper), 32767)
 		val = self.clamp_float(val)
 
 		dim = upper - lower
 
-		print "dim {0}".format(dim)
+		#print "dim {0}".format(dim)
 		scaled = int(lower + val*dim)
-		print "clamped val {0} scaled {1}".format(val, scaled)
+		#print "clamped val {0} scaled {1}".format(val, scaled)
 		return scaled
 
 	def gen_out_report_abs(self):
@@ -105,33 +123,13 @@ class hid_mouse(object)	:
 	def fire_report(self):
 		with open(self.outf, "wb") as f:
 			if self._abs:
-				print "absolute x: {0} ({1})\ty: {2} ({3})".format(self._x_abs, self._x_abs_short, self._y_abs, self._y_abs_short)
+				#print "absolute x: {0} ({1})\ty: {2} ({3})".format(self._x_abs, self._x_abs_short, self._y_abs, self._y_abs_short)
 				f.write(self.gen_out_report_abs())
 			else:
-				print "relative x: {0} \ty: {1}".format(self.x_rel, self.y_rel)
+				#print "relative x: {0} \ty: {1}".format(self.x_rel, self.y_rel)
 				f.write(self.gen_out_report_rel())
 			f.flush()
 
-#	def fire_click(self, btn1=False, btn2=False, btn3=False):
-#		if self._abs:
-#			report = hid_mouse.convert_btn_byte(btn1, btn2, btn3) + "\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-#			with open(self.outf, "wb") as f:
-#				f.write(report)
-#				f.flush()
-#		else:
-#			report = hid_mouse.convert_btn_byte(btn1, btn2, btn3) + "\x00\x00\x00"
-#			with open(self.outf, "wb") as f:
-#				f.write(report)
-#				f.flush()
-#				f.write("\x00\x00\x00")
-#				f.flush()
-#
-#	def fire_rel_move(self, dx, dy):
-#		move = struct.pack("<bb", dx, dy)
-#		report = hid_mouse.convert_btn_byte(self.button1, self.button2, self.button3) + move
-#		with open(self.outf, "wb") as f:
-##                       f.write(report)
-#                        f.flush()
 
 	@staticmethod
 	def convert_btn_byte(btn1=False, btn2=False, btn3=False):

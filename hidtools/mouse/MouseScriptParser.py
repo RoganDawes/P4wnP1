@@ -1,4 +1,23 @@
 #!/usr/bin/python
+
+
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
 from hid_mouse import hid_mouse
 import time
 import sys
@@ -62,9 +81,9 @@ class MouseScriptParser:
 
 
 	def DO_BUTTONS(self, argv):
-		print "BUTTONS method {0}".format(argv)
+		#print "BUTTONS method {0}".format(argv)
 		if len(argv) < 3:
-			print "BUTTON command takes 3 values"
+			#print "BUTTON command takes 3 values"
 			return
 
 		if argv[0] == "0":
@@ -89,7 +108,7 @@ class MouseScriptParser:
 			
 	def DO_MOVE(self, argv):
 		# ToDo: Command could be extended to support 3rd relative axis for mousewheel (implementation in hid_mouse.py + change of HID descriptor)
-		print "MOVE method {0}".format(argv)
+		#print "MOVE method {0}".format(argv)
 		x = int(float(argv[0])) # be sure to convert float to int
 		x = min(127, max(-127, x))
 		y = int(float(argv[1])) # be sure to convert float to int
@@ -114,7 +133,7 @@ class MouseScriptParser:
 		
 	def DO_MOVESTEPS(self, argv):
 		# ToDo: Command could be extended to support 3rd relative axis for mousewheel (implementation in hid_mouse.py + change of HID descriptor)
-		print "MOVESTEPS method {0}".format(argv)
+		#print "MOVESTEPS method {0}".format(argv)
 		x = int(float(argv[0])) # be sure to convert float to int
 		#x = min(127, max(-127, x))
 		y = int(float(argv[1])) # be sure to convert float to int
@@ -146,7 +165,7 @@ class MouseScriptParser:
 		self.mouse.y_rel = 0
 
 	def DO_MOVETO(self, argv):
-		print "MOVETO method {0}".format(argv)
+		#print "MOVETO method {0}".format(argv)
 		x = float(argv[0])
 		y = float(argv[1])
 
@@ -156,15 +175,15 @@ class MouseScriptParser:
 		self._sendMouseReport()
 
 	def DO_DELAY(self, argv):
-		print "DELAY method {0}".format(argv)
+		#print "DELAY method {0}".format(argv)
 		time.sleep(float(argv[0]) / 1000.0)
 
 	def DO_UPDATE(self, argv):
-		print "UPDATE method {0}".format(argv)
+		#print "UPDATE method {0}".format(argv)
 		self._sendMouseReport()
 
 	def DO_CLICK(self, argv):
-		print "CLICK method {0}".format(argv)
+		#print "CLICK method {0}".format(argv)
 		# clear button state
 		self.DO_BUTTONS(['0', '0', '0']) # more correct: only button which have to be clicked should be released here
 		#self._sendMouseReport()
@@ -180,16 +199,28 @@ class MouseScriptParser:
 
 
 	def DO_DOUBLECLICK(self, argv):
-		print "DOUBLECLICK method {0}".format(argv)
+		#print "DOUBLECLICK method {0}".format(argv)
 		self.DO_CLICK(argv)
 		# NOTE: Seems there's no delay needed between two CLICKS, otherwise it has to be placed here
 		self.DO_CLICK(argv)
 
 
 	def DO_UPDATEDELAYED(self, argv):
-		print "UPDATEDELAYED method {0}".format(argv)
+		#print "UPDATEDELAYED method {0}".format(argv)
 		self.DO_UPDATE(argv)
 		self.DO_DELAY(argv)
+		
+	def executeScript(self, script):
+		if len(script) > 0:
+			commands = []
+			for l in script:
+				extracted = self.extract_command(l)
+				if extracted:
+					commands.append(extracted)
+
+			for command in commands:
+				cmd, argv = command
+				self.dispatch_command(cmd, argv)		
 
 def main(args):
 	p = MouseScriptParser()
@@ -198,21 +229,7 @@ def main(args):
 	for line in sys.stdin:
 		source.append(line)
 
-	if len(source) > 0:
-#	with open("/home/pi/P4wnP1/MouseScripts/test_rel.txt", "rb") as f:
-#		lines = f.readlines()
-		commands = []
-		for l in source:
-			print l
-
-			extracted = p.extract_command(l)
-			if extracted:
-				commands.append(extracted)
-
-		for command in commands:
-			cmd, argv = command
-			p.dispatch_command(cmd, argv)
-	#	print text
+	p.executeScript(source)
 
 
 if __name__ == "__main__":
