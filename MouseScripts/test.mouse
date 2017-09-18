@@ -1,0 +1,211 @@
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+###############################################
+# Test file for P4wnP1 MouseScript            #
+# (test against paint with fullscreen canvas) #
+###############################################
+
+# Test 1 (relative mouse movement)
+# ================================
+# - uses the 'MOVE' command to position the mice
+# - the command accepts relative movement values between -127 and 127 for each axis
+# - the values represent how many mouseunits the pointer should been moved
+# - how many pixels the pointer moves on screen depends on system settings (DPI, mouse acceleration, screeen resolution)
+# - This method introduces an error, caused by "mouse acceleration", which could be shown with the following MouseScript 
+#   command sequence:
+#		MOVE 0 -100    # Move the pointer 100 units down on y axis
+#		MOVE 100 0     # Move the pointer 100 units on positive x axis 
+#		MOVE -100 100  # Move the pointer 100 units on negative x axis and 100 units down on y axis
+# - Although this should en up in the starting point, the final mouse coordinate has an offset, due to acceleration
+#   on diagonal movement (longer way in same time)
+# - the advantage of using MOVE is that it is fast (in its limited range) and works out quite well for horizontal/vertical moves
+#
+# Test 2 (relative mouse movement, stepped)
+# =========================================
+# - this test draws tries to redraw the picture from Test 1 using the 'MOVESTEPPED' command
+# - this command again is for relative movement, but not bound to the limit of -127 to 127
+# - the move direction is subdivide into multiple steps, where each step has a minimum range
+#   of one mouse unit on either the x or the y axis
+# - advantage: returning to the origin with high precission is possible
+# - disadvantage: much slower, as many status updates are needed to move to the final coordinate
+#
+# Test 3 (absolute movement)
+# ==========================
+# - this Test uses the MOVETO command, which utilizes absolute coordinates
+# - MOVETO uses float values between 0.0 and 1.0 on both, the x and the y axis
+# - positioning could be done accuratly, precission is at 15 bit (float is internally represented by values between 
+#   0x0000 and 0x7FFF), which should be enough for todays screen resolutions
+# - as coordinates are given in float with equal distribution on both axes, one has to manually account
+#   for current aspect radio and screen resolution (coordinate translation) to hit a screen pixel precisely
+# - the test doesn't account on aspect radio and tries to draw the picture a third time
+# - advantage: accurate , pixel perfect mouse positioning (if coordinates are calculated correctly)
+# - disadvantage: Absolute positioning doe work on Windows 10, but doesn't work on Android (a digitizer has to be
+#   emulated for this). It isn't tested against *nix OS'es, but X11 is known to have problems with absolute mice.
+# - on most OS'es expcept Windows, this test shouldn't produce a mouse movement. If it does, absolute
+#   positioning is supported
+#
+#
+# Additional commands
+# ===================
+# CLICK [btn1] [btn2] [btn3]
+#  - clicks the respective button one time ("1" for click, "0" for don't click)
+#  - Example for left click: 
+#       CLICK 1 0 0 
+# - Example for right click:
+#       CLICK 0 1 0
+#
+# DOUBLECLICK [btn1] [btn2] [btn3]
+# - like CLICK, but double clicks
+#
+# BUTTONS [btn1] [btn2] [btn3]
+# - this command is used, if a button state should be kept during movement (drag while button down)
+# - Example for relative movement with button pressed:
+#       BUTTONS 0 0 0        # release all buttons
+#	MOVETO 0.5 0.5       # move to screen center (if absolut movement supported)
+#       BUTTONS 1 0 0        # press down left button
+#       MOVESTEPPED 100 0    # move 100 steps right while button pressed
+#       MOVESTEPPED 0 -100   # move 100 steps up while button still pressed
+#       BUTTONS 0 0 0        # releas all buttons
+#
+# DELAY [delay in milliseconds]
+# - delays script execution
+
+ 
+# The following tests should be ran with paint opened in fullscreen (FullScreen canvas, to allow drawing)
+
+# Initial 5 seconds delay to allow switching target window if needed
+DELAY 5000
+
+#################
+# Test 1
+#################
+
+# Paint a house using relative positioning, should show inaccuracy due to mouse acceleration
+MOVETO 0.6 0.5 # center, offset right
+CLICK 1 0 0 # click into paint window to activate
+
+MOVE -50 50 #
+BUTTONS 1 0 0 # press left button (don't release)
+MOVE 0 -100
+DELAY 500
+
+MOVE 100 0
+DELAY 500
+
+MOVE -100 100
+DELAY 500
+
+MOVE 100 0
+DELAY 500
+
+MOVE -100 -100
+DELAY 500
+
+MOVE 50 -50
+DELAY 500
+
+MOVE 50 50
+DELAY 500
+
+MOVE 0 100
+DELAY 500
+
+BUTTONS 0 0 0 # release all buttons
+
+
+#################
+# Test 2
+#################
+
+DELAY 2000
+
+# Paint a house using relative positioning, but devide the move into
+# very small mouse moves, to overcome positioning issues due to mouse acceleration
+
+MOVETO 0.4 0.5 # center, offset left
+
+MOVESTEPPED -250 250 #
+BUTTONS 1 0 0 # press left button (don't release)
+MOVESTEPPED 0 -500
+DELAY 500
+
+MOVESTEPPED 500 0
+DELAY 500
+
+MOVESTEPPED -500 500
+DELAY 500
+
+MOVESTEPPED 500 0
+DELAY 500
+
+MOVESTEPPED -500 -500
+DELAY 500
+
+MOVESTEPPED 250 -250
+DELAY 500
+
+MOVESTEPPED 250 250
+DELAY 500
+
+MOVESTEPPED 0 500
+DELAY 500
+
+BUTTONS 0 0 0 # release all buttons
+
+
+
+#################
+# Test 3
+#################
+
+
+# Paint the house using absolute positioning, doesn't need steps, but coordinate
+# conversion to account for aspect ratio
+
+
+DELAY 2000
+
+MOVETO 0.25 0.55 
+BUTTONS 1 0 0 # press left button (don't release)
+
+MOVETO 0.25 0.45 #1
+DELAY 500
+
+MOVETO 0.35 0.45 #2
+DELAY 500
+
+MOVETO 0.25 0.55 #3
+DELAY 500
+
+MOVETO 0.35 0.55 # 4
+DELAY 500
+
+MOVETO 0.25 0.45 # 5
+DELAY 500
+
+MOVETO 0.3 0.4 # 6
+DELAY 500
+
+MOVETO 0.35 0.45 #7
+DELAY 500
+
+MOVETO 0.35 0.55 #8
+DELAY 500
+
+BUTTONS 0 0 0 # release all buttons
+

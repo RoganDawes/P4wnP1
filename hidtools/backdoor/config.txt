@@ -8,6 +8,7 @@ HID_RAW_DEV=/dev/hidg1
 KEYBOARD_LANG=us
 
 PATH_DUCKYSCRIPT=../../DuckyScripts
+PATH_MOUSESCRIPT=../../MouseScripts
 
 PATH_LANGUAGES=resources
 

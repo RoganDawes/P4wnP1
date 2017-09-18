@@ -45,6 +45,8 @@ source $wdir/boot/init_config.sh
 # Create bash script which could be altered from /home/pi/.profile
 touch /tmp/profile.sh
 echo "#!/bin/bash" >> /tmp/profile.sh
+echo "wdir=$wdir" >> /tmp/profile.sh
+echo "lang=$lang" >> /tmp/profile.sh
 echo $(declare -p ledtrigger | cut -d" " -f3) >> /tmp/profile.sh
 declare -f led_blink >> /tmp/profile.sh
 declare -f onLogin >> /tmp/profile.sh
@@ -143,9 +145,20 @@ fi
 source $wdir/boot/init_autossh.sh
 start_autossh # start_autossh takes care of checking AUTOSSH_ENABLED
 
+if $USE_HID_MOUSE; then
+	# import mouse functions
+	source $wdir/boot/init_hid_mouse.sh
+	declare -f outmouse >> /tmp/profile.sh
+	chown pi:pi /tmp/profile.sh
+fi
+
 if $USE_HID; then
 	# import keyboard functions
 	source $wdir/boot/init_hid_keyboard.sh
+	
+	declare -f outhid >> /tmp/profile.sh
+	declare -f duckhid >> /tmp/profile.sh
+	chown pi:pi /tmp/profile.sh
 
 	# if HID keyboard should be tested for readyness, do it (triggers "onKeyboardUp" callback of payload)
 	if $HID_KEYBOARD_TEST; then
@@ -160,6 +173,8 @@ if $USE_HID; then
 		)&
 	fi
 fi
+
+
 
 # trigger callback for on boot finished
 #declare -f onBootFinished > /dev/null && onBootFinished # run only once

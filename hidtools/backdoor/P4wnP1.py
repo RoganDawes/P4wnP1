@@ -36,6 +36,7 @@ from StructHelper import StructHelper
 from Channel import * 
 from Client import *
 from FileSystem import *
+from mouse.MouseScriptParser import MouseScriptParser
 
 class P4wnP1(cmd.Cmd):
 	"""
@@ -92,6 +93,7 @@ class P4wnP1(cmd.Cmd):
 		self.__pending_server_methods = {}
 
 		self.duckencoder = duckencoder
+		self.mousescriptparser = MouseScriptParser()
 		
 		# register Listener for LinkLayer signals to upper layers (to receive LinkLayer connection events)
 		dispatcher.connect(self.signal_handler_transport_layer, sender="TransportLayerUp")
@@ -914,6 +916,63 @@ Use "help FireStage1" to get more details.
 			
 		# execute script
 		self.duckencoder.outhidDuckyScript(script)
+
+	def do_SendMouseScript(self, line):
+		scriptpath = self.config["PATH_MOUSESCRIPT"] +  "/" +  line
+		
+		if not FileSystem.fileExists(scriptpath):
+			print "No script given or given script not found"
+			hasChosen =  False
+			scriptNum =  0
+			available_scripts = FileSystem.ls(self.config["PATH_MOUSESCRIPT"])
+			while not hasChosen:
+				# print out available scripts
+				print "Choose script by number or name:"
+				print "================================\n"
+				for i in range(len(available_scripts)):
+					print "{0}:\t{1}".format(i, available_scripts[i])
+
+				given = raw_input("Your selection or 'x' to abort: ")
+				if given == "x":
+					print "abort ..."
+					return
+				# try to choose by name
+				if given in available_scripts:
+					scriptNum =  available_scripts.index(given)
+					hasChosen =  True
+					break
+				# try to choose by number
+				try:
+					scriptNum = int(given)
+					if scriptNum >= 0 and scriptNum < len(available_scripts):
+						hasChosen =  True
+						break
+					else:
+						print "Invalid input..."
+						continue						
+				except ValueError:
+					print "Invalid input..."
+					continue
+			
+			if hasChosen:
+				scriptpath = self.config["PATH_MOUSESCRIPT"] +  "/" +  available_scripts[scriptNum]
+			else:
+				return
+		
+		# read in script
+		script = ""
+		with open(scriptpath, "r") as f:
+			script = f.readlines()
+			
+		# execute script
+		print "Executing MouseScript ..."
+		try:
+			self.mousescriptparser.executeScript(script)
+		except KeyboardInterrupt:
+			print "MouseScript execution interrupted"
+			return
+			
+		print "... finished"
 		
 	def do_lcd(self,  line):
 		print FileSystem.cd(line)

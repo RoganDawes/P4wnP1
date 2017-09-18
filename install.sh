@@ -101,6 +101,10 @@ sudo update-rc.d networking disable
 sudo update-rc.d avahi-daemon disable
 sudo update-rc.d dnsmasq disable # we start this by hand later on
 
+echo "Create udev rule for HID devices..."
+# rule to set access rights for /dev/hidg* to 0666 
+echo 'SUBSYSTEM=="hidg",KERNEL=="hidg[0-9]", MODE="0666"' > /tmp/udevrule
+sudo bash -c 'cat /tmp/udevrule > /lib/udev/rules.d/99-usb-hid.rules'
 
 echo "Enable SSH server..."
 sudo update-rc.d ssh enable

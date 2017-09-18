@@ -1,0 +1,90 @@
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+# P4wnP1 demo payload by MaMe82
+# ==========================
+#
+# Demo of P4wnP1's mouse emulation.
+#
+# Emulates a HID keyboard and a mouse. Additionally RNDIS is enabled as fallback for network 
+# access (not needed by the payload).
+#
+#
+# Uses the keyboard to open paint in fullscreen and resize the canvas to 1920x1080
+# In the next step a MouseScript to draw a house in 3 tests is run:
+#	Test 1: relative positioning (without steps)
+#   Test 2: relative positioning (with steps)
+#   Test 3: absolute positioning
+#
+# For details on P4wnP1's MouseScript languages, see the test script in $wdir/MouseScripts/test.mouse
+#
+# The HID backdoor supports P4wnP1's MouseScript with the 'SendMouseScript' command
+USB_VID="0x1d6b"        # Vendor ID
+USB_PID="0x1231"        # Product ID
+USE_RNDIS=true          # RNDIS as fallback
+USE_HID=true            # if true HID (keyboard) will be enabled
+USE_HID_MOUSE=true
+HID_KEYBOARD_TEST=true
+
+# overwrite default keyboard language
+lang="us"
+
+function onKeyboardUp()
+{
+	
+	
+	# directly pipe duckyscript to "duckhid"
+	cat <<- EOF | duckhid
+		GUI r
+		DELAY 500
+		STRING notepad.exe
+		ENTER
+		DELAY 1000
+EOF
+
+	(
+			echo
+			echo "As soon as NUMLOCK is pressed multiple times, P4wnP1"
+			echo "tries to open MSPaint with the following DuckyScript:"
+			echo "  $wdir/DuckyScripts/mspaint.duck"
+			echo
+			echo "This is followed by a script in P4wnP1's MouseScript language"
+			echo "which could be found here:"
+			echo "  $wdir/MouseScripts/test.mouse"
+			echo 
+			echo "The MouseScript file gives details on how to use MouseScript"
+			echo "and hints on advantages/disadvantages of the different ways"
+			echo "available to move the mouse"
+			echo
+	) | outhid
+
+	
+	while $true; do
+		key_trigger
+	
+		# use DuckyScript to open paint
+		cat $wdir/DuckyScripts/mspaint.duck | duckhid
+		# use MouseScript to run 3 tests (painting the a house in three different modes)
+		# Note: the mouse script starts with a 5 second delay to allow manual interaction
+		#       like switching windows
+		cat $wdir/MouseScripts/test.mouse | outmouse
+	
+	done
+}
+
