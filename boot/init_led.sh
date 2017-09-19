@@ -29,7 +29,8 @@
 # with owner root, and thus not writable by user pi)
 ledtrigger="/tmp/blink_count"
 echo 255 > $ledtrigger
-chown pi:pi $ledtrigger
+chmod 0666 $ledtrigger
+sync
 
 # start LED control in background
 python $wdir/ledtool/ledtool.py&
