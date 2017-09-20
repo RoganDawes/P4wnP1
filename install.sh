@@ -178,8 +178,8 @@ sudo systemctl enable P4wnP1.service
 
 # create systemd service for bluetooth NAP
 if [ ! -f /etc/systemd/system/P4wnP1-bt-nap.service ]; then
-        echo "Injecting P4wnP1 startup script..."
-        cat <<- EOF | sudo tee /etc/systemd/system/P4wnP1.service > /dev/null
+        echo "Injecting P4wnP1 BLUETOOTH NAP startup script..."
+        cat << EOF | sudo tee /etc/systemd/system/P4wnP1.service > /dev/null
 
 [Unit]
 Description=P4wnP1 Bluetooth NAP service
@@ -195,20 +195,19 @@ StandardError=journal+console
 
 [Install]
 WantedBy=bluetooth.target
+EOF
+fi
 
-
+sudo systemctl enable P4wnP1-bt-nap.service
 
 if ! grep -q -E '^.+P4wnP1 STARTUP$' /home/pi/.profile; then
-	echo "Addin P4wnP1 startup script to /home/pi/.profile..."
+	echo "Adding P4wnP1 startup script to /home/pi/.profile..."
 cat << EOF >> /home/pi/.profile
 # P4wnP1 STARTUP
 source /tmp/profile.sh
 declare -f onLogin > /dev/null && onLogin
 EOF
 fi
-
-sudo systemctl enable P4wnP1-bt-nap.service
-
 
 # enable autologin for user pi (requires RASPBIAN JESSIE LITE, should be checked)
 echo "Enable autologin for user pi..."
