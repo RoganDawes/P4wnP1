@@ -22,7 +22,27 @@
 #
 # provides Bluetooth NAP functionality for Pi Zero W (equipped with BT module)
 
+# This script is ran by a dedicated service, not by the main P4wnP1 boot service
+# (because we are depending on d-bus, which is available late at boot).
+# Because of this fact the settings of setup.cfg and the current payload have
+# to be imported, without executing the payload again.
+
+# source in configurations
+############
+wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
+# include setup.cfg (calling source is fine, as no code should be included)
+source $wdir/setup.cfg
+
+# include payload (overrides variables set by setup.cfg if needed)
+# as the payload could include code (like the hakin9 tutorial), we only
+# import bash variables, using a temporary file
+cat $wdir/payloads/$PAYLOAD | grep "=" > /tmp/payload_vars
+source /tmp/payload_vars
+rm /tmp/payload_vars
+
 # ToDo: check for bluetooth capability (Pi Zero hasn't BT)
+#       Note: shouldn't be needed, as this file is started by a service
+#             which depends on bluetooth.service      
 
 BRNAME=pan0
 
@@ -95,4 +115,11 @@ function end_BLUETOOTH_NAP()
 	sudo ifconfig $BRNAME down
 	sudo brctl delbr $BRNAME
 	sudo kill $(ps -aux | grep 'dnsmasq_bt.conf' | grep -v -e "grep" | awk '{print $2}')
+	sudo rm /tmp/dnsmasq_bt.conf
 }
+
+
+# Enable Bluetooth NAP if requested
+if $BLUETOOTH_NAP; then
+	start_BLUETOOTH_NAP
+fi

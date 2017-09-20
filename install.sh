@@ -176,6 +176,28 @@ fi
 
 sudo systemctl enable P4wnP1.service
 
+# create systemd service for bluetooth NAP
+if [ ! -f /etc/systemd/system/P4wnP1-bt-nap.service ]; then
+        echo "Injecting P4wnP1 startup script..."
+        cat <<- EOF | sudo tee /etc/systemd/system/P4wnP1.service > /dev/null
+
+[Unit]
+Description=P4wnP1 Bluetooth NAP service
+After=bluetooth.service
+PartOf=bluetooth.service
+
+[Service]
+Type=forking
+RemainAfterExit=yes
+ExecStart=/bin/bash /home/pi/P4wnP1/boot/init_bt.sh
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=bluetooth.target
+
+
+
 if ! grep -q -E '^.+P4wnP1 STARTUP$' /home/pi/.profile; then
 	echo "Addin P4wnP1 startup script to /home/pi/.profile..."
 cat << EOF >> /home/pi/.profile
@@ -184,6 +206,8 @@ source /tmp/profile.sh
 declare -f onLogin > /dev/null && onLogin
 EOF
 fi
+
+sudo systemctl enable P4wnP1-bt-nap.service
 
 
 # enable autologin for user pi (requires RASPBIAN JESSIE LITE, should be checked)
@@ -242,6 +266,8 @@ echo "If you're using a Pi Zero W, a WiFi AP should be opened. You could use the
 echo "          WiFi name:    P4wnP1"
 echo "          Key:          MaMe82-P4wnP1"
 echo "          SSH access:    pi@172.24.0.1 (password: raspberry)"
+echo
+echo "  or via Bluetooth NAP:    pi@172.26.0.1 (password: raspberry)"
 echo
 echo "Go to your installation directory. From there you can alter the settings in the file 'setup.cfg',"
 echo "like payload and language selection"

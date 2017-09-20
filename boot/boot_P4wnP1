@@ -92,14 +92,6 @@ else
 	echo "P4wnP1: ... USB gadget initialized"
 fi
 
-# Enable Bluetooth NAP if requested
-# ToDo: Check for Bluetooth capabilities first (WiFi test could be used as quick fix, as WiFi + BT are using the same BCM SoC)
-if $BLUETOOTH_NAP; then
-	source $wdir/boot/init_bt.sh
-	start_BLUETOOTH_NAP
-fi
-
-
 # check if ethernet over USB should be used
 if $USB_RNDIS || $USB_ECM; then 
 	USB_ETHERNET=true 
