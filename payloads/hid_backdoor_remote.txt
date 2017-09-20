@@ -94,6 +94,10 @@ WIFI_ACCESSPOINT_NETMASK="255.255.255.0"
 WIFI_ACCESSPOINT_DHCP_RANGE="172.24.0.2,172.24.0.100" # DHCP Server IP Range
 WIFI_ACCESSPOINT_HIDE_SSID=false # don't hide ESSID
 
+BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via BT on IP configured in setup.cfg (BLUETOOTH_NAP_IP)
+
+
+
 # Setup for the upstream SSH server
 # ---------------------------------
 
