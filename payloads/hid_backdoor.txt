@@ -47,6 +47,9 @@ lang="us"
 # blink one time when payload script get's initiated
 led_blink 1 # usage at thi point is invalid, as the script gets called again on SSH login
 
+WIFI_ACCESSPOINT=true # enable WiFi AccessPoint
+BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via IP configured in setup.cfg (BLUETOOTH_NAP_IP)
+
 function onKeyboardUp()
 {
 
