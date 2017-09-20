@@ -179,7 +179,7 @@ sudo systemctl enable P4wnP1.service
 # create systemd service for bluetooth NAP
 if [ ! -f /etc/systemd/system/P4wnP1-bt-nap.service ]; then
         echo "Injecting P4wnP1 BLUETOOTH NAP startup script..."
-        cat << EOF | sudo tee /etc/systemd/system/P4wnP1.service > /dev/null
+        cat << EOF | sudo tee /etc/systemd/system/P4wnP1-bt-nap.service > /dev/null
 
 [Unit]
 Description=P4wnP1 Bluetooth NAP service
@@ -195,6 +195,7 @@ StandardError=journal+console
 
 [Install]
 WantedBy=bluetooth.target
+
 EOF
 fi
 
