@@ -48,6 +48,10 @@ if ! (grep -q -E "Raspbian.*jessie" /etc/os-release || grep -q -E "Raspbian.*str
         exit
 fi
 echo "...[pass] Pi seems to be running Raspbian Jessie or Stretch"
+if (grep -q -E "Raspbian.*stretch" /etc/os-release) ; then
+	STRETCH=true
+fi
+
 
 echo "Backing up resolv.conf"
 sudo cp /etc/resolv.conf /tmp/resolv.conf
@@ -128,7 +132,16 @@ else
 fi
 
 echo "Unpacking John the Ripper Jumbo edition..."
-tar xJf john-1-8-0-jumbo_raspbian_jessie_precompiled/john-1.8.0-jumbo-1_precompiled_raspbian_jessie.tar.xz
+if $STRETCH; then
+	cd john-1-8-0-jumbo_raspbian_jessie_precompiled/
+	git fetch
+	git checkout jtr_stretch
+	cd ..
+	tar zxf john-1-8-0-jumbo_raspbian_jessie_precompiled/john-1-8-0-jumbo_raspbian_stretch_precompiled.tar.gz
+else
+	tar xJf john-1-8-0-jumbo_raspbian_jessie_precompiled/john-1.8.0-jumbo-1_precompiled_raspbian_jessie.tar.xz
+fi
+
 
 # overwrite Responder configuration
 echo "Configure Responder..."
