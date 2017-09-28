@@ -8,3 +8,6 @@
 	path = Responder
 	url = https://github.com/mame82/Responder
 	branch = EMULATE_INTERNET_AND_WPAD_ANYWAY
+[submodule "nexmon"]
+	path = nexmon
+	url = https://github.com/mame82/P4wnP1_nexmon_additions

@@ -247,7 +247,13 @@ echo "Installing kernel update ..."
 #        stretch kernel known working is 4.9.45+ (only available via update right now)
 
 # Raspbian stretch with Kernel >= 4.9.50+ needed for working bluetooth nap
-sudo rpi-update
+sudo rpi-update 913eddd6d23f14ce34ae473a4c080c5c840ed583 # force kernel 4.9.51+ for nexmon compatability
+
+# ToDo: the correct branch of nexmon for the current update kernel should be checked out here,
+#       to do this the downloaded kernel version has to be feteched, which is only available after reboot from `uname -r`
+#       The logic to do this will be implemented in init_wifi_nexmon, to allow checking out the correct branch of "P4wnP1_nexmon_addition"
+#       if it doesn't match the current kernel at runtime
+
 
 echo "Generating keypair for use with AutoSSH..."
 source $wdir/setup.cfg
