@@ -71,7 +71,7 @@ function WIFI_activate_nexmon()
 	sudo modprobe brcmutil
 	printf "\033[0;31m  RELOADING\033[0m brcmfmac\n"
 
-	sudo insmod brcmfmac.ko
+	sudo insmod $nexmondir/brcmfmac.ko
 }
 
 function WIFI_activate_legacy()
