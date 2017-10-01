@@ -20,7 +20,7 @@ The most important sections:
 Introduction
 ============
 
-Since the initial release in February 2017, P4wnP1 has come along way. 
+Since the initial release in February 2017, P4wnP1 has come a long way.
 Today advanced features are merged back into the master branch, among others:
 -   the **Windows LockPicker** (unlock Windows boxes with weak passwords, fully automated by attaching P4wnP1)
 -   the **HID covert channel backdoor** (Get remote shell access on air gapped Windows targets tunneled only through HID devices, relayed to a WiFi hotspot with SSH access with a Pi Zero W. The target doesn't see a network adapter, serial or any other communication device.)
@@ -40,7 +40,7 @@ External Resources using P4wnP1
   [part 3]: https://www.ihacklabs.com/es/red-team-arsenal-hardware-p4wnp1-walkthrough-cargando-y-disparando-con-la-raspberry-pi-zero-w-parte-3/
   [Dan the IOT Man]: https://dantheiotman.com/2017/09/15/p4wnp1-the-pi-zero-based-usb-attack-platform/
 
-P4wnP1 Features(quick summary)
+P4wnP1 Features (quick summary)
 ===============================
 
 -	**WiFi Hotspot** for SSH access (Pi Zero W only), support for hidden ESSID
@@ -53,7 +53,7 @@ P4wnP1 Features(quick summary)
     - **RNDIS** (Windows Networking)
     - **CDC ECM** (MacOS / Linux Networking)
 -	Raspberry Pi **LED state feedback** with a simple bash command (`led_blink`)
--   customizeable **bash based payload scripts** (see `payloads/` subfolder for examples example)
+-   customizable **bash based payload scripts** (see `payloads/` subfolder for examples)
 -   includes **Responder** and a precompiled **John the Ripper Jumbo** version
 -   **Auto attack:** P4wnP1 automatically boots to standard shell if an OTG adapter is attached, the current payload only runs if P4wnP1 is connected as USB device to a target (without USB OTG adapter)
 
@@ -69,7 +69,7 @@ To get a basic idea some payloads are already included and described here:
 ## Payload: Windows LockPicker
 
 
-This payload extends the "Snagging creds from locked machine" approach, presented by Mubix (see credits), to its obvious successor: 
+This payload extends the "Snagging creds from locked machine" approach, presented by Mubix (see credits), to its obvious successor:
 
 **P4wnP1 LockPicker cracks grabbed hashes and unlocks the target on success, using its keyboard capabilities.** This happens fully automated, without further user interaction.
 
@@ -88,19 +88,19 @@ Here's a version of someone doing this much better, thanks @Seytonic
 2. Among other options, a WPAD entry is placed and static routes for the whole IPv4 address space are deployed to the target.
 3. P4wnP1 redirects traffic dedicated to remote hosts to itself using different techniques.
 4. Requests for various protocols originating from the target, are fetched by "Responder.py", which forces authentication and tries to steal the hashes used for authentication.
-5. If a hash gets grabbed, P4wnP1 LED is blinking three times in sequence, to signal that you could unplug and walk away with the hashes for offline cracking. **Or...**
+5. If a hash is grabbed, P4wnP1 LED blinks three times in sequence, to signal that you can unplug and walk away with the hashes for offline cracking. **Or...**
 6. ... you leave P4wnP1 plugged and the hashes are handed over to John the Ripper, which tries to bruteforce the captured hash.
-7. If the ´password of the user who locked the box is weakly choosen, chances are high that John the Ripper is able to crack it, which leads to...
+7. If the ´password of the user who locked the box is weakly chosen, chances are high that John the Ripper will be able to crack it, which leads to...
 8. ... **P4wnP1** ultimately enters the password, in order to unlock the box and you're able to access the box (the cracked password is stored in `collected` folder, along with the hashes).
 
-The payload `Win10_LockPicker.txt` has to be choosen in `setup.cfg` to carry out the attack. **It is important to modify the payloads "lang" parameter to your target's language**. If you attach a HDMI monitor to P4wnP1, you could watch the status output of the attack (including captured hash and plain creds, if you made it this far).
+The payload `Win10_LockPicker.txt` has to be chosen in `setup.cfg` to carry out the attack. **It is important to modify the payloads "lang" parameter to your target's language**. If you attach a HDMI monitor to P4wnP1, you could watch the status output of the attack (including captured hash and plain creds, if you made it this far).
 
 ## Payload: Stealing Browser credentials (hakin9_tutorial)
 
 
 This payload runs a PowerShell script, typed out via P4wnP1's built-in keyboard, in order to dump stored credentials of Microsoft Edge or Internet Explorer. Fetched credentials are stored to P4wnP1's flashdrive (USB Mass Storage).
 As the name implies, this payload is the result of an hakin9 article on payload development for P4wnP1, which is yet unpublished. For this reason, the payload has RNDIS enabled, although not needed to carry out the attack.
-It's main purpose is to show how to store the result from a keyboard based attack, to P4wnP1's flashdrive, although the driver letter is only known at runtime of the payload.
+Its main purpose is to show how to store the result from a keyboard based attack, to P4wnP1's flashdrive, although the drive letter is only known at runtime of the payload.
 
 ### Video demo
 
@@ -111,11 +111,11 @@ It's main purpose is to show how to store the result from a keyboard based attac
 
 This payload plants a **backdoor which allows to access a command shell with SYSTEM level privileges from the Windows Lockscreen**. Once planted, the shell is triggered by sticky keys.
 
-The payload itself i purely keyboard based.
+The payload itself is purely keyboard based.
 The widely known approach to achieve the payloads's goal, is to replace the `sethc.exe` file. Anyway, this payload does the change based on a registry hack (Debugger property of Image execution options). This means the attack is less noisy, as the filesystem doesn't get touched directly. Additionally the payload shows how to **use P4wnP1's keyboard triggers**. Pressing NUMLOCK multiple times plants the backdoor, while pressing SCROLLLOCK multiple times removes the backdoor again.
-Last but not least, the attack demoes a simple **UAC bypass**, as the PowerShell session used has to be ran with elevated privilegs.
+Last but not least, the attack demoes a simple **UAC bypass**, as the PowerShell session used has to be ran with elevated privileges.
 
-The attack requires an unlocked target runned by an Administrator account.
+The attack requires an unlocked target run by an Administrator account.
 
 The payload demoed here isn't published yet.
 
@@ -143,7 +143,7 @@ The payload demoed here isn't published yet.
 -    HID based file transfer from P4wnP1 to target memory
 -    **Stage 0:** P4wnP1 sits and waits, till the attacker triggers the payload stage 1 (frequently pressing NUMLOCK)
 -    **Stage 1:** payload with "user space driver" for HID covert channel communication protocols is **typed out to the target via USB keyboard**
--    **Stage 2:** Communications switches to HID channel and gives access to a custom shell on P4wnP1. This could be used to upload and run PowerShell scripts, which are hosted on P4wnP1, directly into memory of the PowerShell process running on the target. This happens without touching disc or using network communications, at any time.
+-    **Stage 2:** Communications switches to HID channel and gives access to a custom shell on P4wnP1. This could be used to upload and run PowerShell scripts, which are hosted on P4wnP1, directly into memory of the PowerShell process running on the target. This happens without touching disk or using network communications, at any time.
 
 
 ## Payload HID covert channel backdoor (Pi Zero W only)
@@ -192,7 +192,7 @@ The video is produced by @Seytonic, you should check out his youtube channel wit
 ### 3. Ad-Hoc keyboard attacks from P4wnP1 backdoor shell (without using the covert channel), could be done from here:
 
 - Entering `help` shows available commands
-- Use the `SetKeyboardLayout` to set the keyboard layout according to your targets language. **This step is important and should always be taken first, otherwise most keyboard based attacks fail.** 
+- Use the `SetKeyboardLayout` to set the keyboard layout according to your target's language. **This step is important and should always be taken first, otherwise most keyboard based attacks fail.**
 - to print the current keyboard layout use `GetKeyboardLayout`. The default keyboard language for the P4wnP1 backdoor shell could be changed in `hidtools/backdoor/config.txt`
 - use the `SendKeys` command followed by an ASCII key sequence to send keystrokes to the target
 - As you will notice, the `SendKeys` command is somehow restricted, no control keys could be sent, even a RETURN is problematic. So for more complex key sequences the `FireDuckyScript` command comes to help.
@@ -214,8 +214,8 @@ So that's all
 ### 5. Loading stage 2
 - There's no rocket sience here. The stage 1 payload initializes the basic interface to the custom HID device and receives stage 2 **fully automated**. Stage 2 includes all the protocol layers and the final backdoor. It gets directly loaded into memory as dot NET assembly.
 - So why dot NET ? The early versions of the backdoor have been fully developed in PowerShell. This resulted in a big mess when it comes to multi threading, PS 2.0 compatability without class inheritance and multi thread debugging with ISE. I don't want to say that is impossible (if you watched the commit history, there's the proof that it is possible), but there's no benefit. To be precise, there are disadvantages: Much more code is needed to achieve the same, the code is slower and **PowerShell Module Logging would be able to catch every single script command from the payload**. In contrast to using a dot NET assembly, where the only PowerShell commands which could get logged, are the ones which load the assembly and run the stage 2 trigger. Everything else is gone as soon as the payload quits. So ... small footprint, yeah.
-- But don't get "PowerShell inline assemlies" compiled to a temporary file on disc ?!?! Yes, they do! At least if they're written with CSharp inline code. Luckily P4wnP1 doesn't do this. The assemblies are shipped pre-compiled.
-	
+- But don't get "PowerShell inline assemlies" compiled to a temporary file on disk ?!?! Yes, they do! At least if they're written with CSharp inline code. Luckily P4wnP1 doesn't do this. The assemblies are shipped pre-compiled.
+
 ### 6. Using the backdoor connection
 - After stage 2 has successfully ran, the prompt of the P4wnP1 backdoor shell should indicate a client connection.
 - From here on, new commands are usable, these include:
@@ -265,7 +265,7 @@ Advanced Network Features
 -   Fake **RNDIS network interface speed up to 20GB/s** to get the lowest metric and win every fight for the dominating 'default gateway' entry in routing tables, while carrying out network attacks (patch could be found [here](https://github.com/mame82/ratepatch/commits/master) and the README [here](https://github.com/mame82/ratepatch/blob/master/README.md))
 -   **Automatic link detection** and interface switching, if a payload enables both RNDIS and ECM network
 -   SSH server is running by default, so P4wnP1 could be connected on 172.16.0.1 (as long as the payload enables RNDIS, CDC ECM or both) or on 172.24.0.1 via WiFi
--   if both, WiFi client mode and WiFi Access Point mode, are enable - **P4wnP1 fails over to open an Access Point in case the target WiFi isn't reachable** (Pi Zero W only)
+-   if both, WiFi client mode and WiFi Access Point mode, are enabled - **P4wnP1 fails over to open an Access Point in case the target WiFi isn't reachable** (Pi Zero W only)
 
 
 Advanced payload features
@@ -277,7 +277,7 @@ Advanced payload features
 	- **onKeyboardUp** (when keyboard driver installation on target has finished and keyboard is usable)
 	- **onLogin** (when a user logs in to P4wnP1 via SSH)
 - configuration can be done globally (`setup.cfg`) or overwritten per payload (if the same parameter is defined in the payload script)
-- settings include: 
+- settings include:
     - USB config (Vendor ID, Product ID, **device types to enable** ...)
     - WiFi config (SSID, password ...)
 	- HID keyboard config (**target keyboard language** etc.)
@@ -332,13 +332,13 @@ via USB
 
     pi@172.16.0.1
 
-or via WiFi	
-    
-	pi@172.24.0.1 
+or via WiFi
+
+	pi@172.24.0.1
 	Network name: P4wnP1
 	Key: MaMe82-P4wnP1
 
-	
+
 From there you could alter `setup.cfg` to change the current payload (`PAYLOAD` parameter) and keyboard language (`LANG` parameter).
 
 Caution:
