@@ -6,7 +6,7 @@ P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspber
 TL;TR
 -----
 
-[Official WiKi](https://github.com/mame82/P4wnP1-Wiki/wiki) started by @jcstill and @Swiftb0y
+[Official WiKi](http://p4wnp1.readthedocs.io/en/latest/) started by @jcstill and @Swiftb0y
 
 There isn't a short summary of this README. If you want to handle this nice tool, I'm afraid you have to read this.
 
