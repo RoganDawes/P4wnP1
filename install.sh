@@ -223,6 +223,12 @@ declare -f onLogin > /dev/null && onLogin
 EOF
 fi
 
+# removing FSCK from fstab, as this slows down boot (jumps in on stretch nearly every boot)
+echo "Disable FSCK on boot ..."
+cat /etc/fstab | awk '{if($1 != "#") $0=gensub(/s*\S+/,"",6)}1' > /tmp/fstab
+sudo bash -c 'cat /tmp/fstab > /etc/fstab'
+
+
 # enable autologin for user pi (requires RASPBIAN JESSIE LITE, should be checked)
 echo "Enable autologin for user pi..."
 sudo ln -fs /etc/systemd/system/autologin@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
