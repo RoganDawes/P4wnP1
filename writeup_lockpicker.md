@@ -440,7 +440,7 @@ So at this point we have a valid NetNTLMv2 hash, along with the challenge which 
 
 It should be noted that the test system wasn't domain joined !!!
 
-### Relevant Network communication on a System without KB4041691
+### Relevant Network communication on a System patched with KB4041691
 
 
 ```
