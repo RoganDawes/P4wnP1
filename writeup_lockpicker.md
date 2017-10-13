@@ -494,11 +494,11 @@ The issue spotted and reported to Microsoft seems to be patched. I haven't done 
 
 ## Credits
 
-Rogan Dawes + Sensepost
-Rob "Mubix" Fuller
-Seytonic
-Samy Kamkar
-Microsoft (MSRC + Nate)
-lgandx (+ SpiderLabs for Responder)
+- Rogan Dawes + Sensepost
+- Rob "Mubix" Fuller
+- Seytonic
+- Samy Kamkar
+- Microsoft (MSRC + Nate)
+- lgandx (+ SpiderLabs for Responder)
 
 Every supporter of P4wnP1 and the growing Github community
