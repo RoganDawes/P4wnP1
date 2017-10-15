@@ -163,6 +163,14 @@ function create_DHCP_config()
 				# routes static (route 128.0.0.1 to 255.255.255.254 through our device)
 				dhcp-option=249,0.0.0.0/1,$IF_IP,128.0.0.0/1,$IF_IP
 			EOF
+               else
+                       cat <<- EOF >> /tmp/dnsmasq_usb_eth.conf
+                               # router disable DHCP gateway announcment
+                               dhcp-option=3
+
+                               # disable DNS settings
+                               dhcp-option=6
+                       EOF
 		fi
 
 		if $WPAD_ENTRY; then
