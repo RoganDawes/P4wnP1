@@ -755,7 +755,7 @@ Use "help FireStage1" to get more details.
 	  no, pt, ru, si, sv, tr, us
 	'''
 		singleprint = False
-		if len(line) >  0:
+		if len(line) > 0:
 			self.duckencoder.setLanguage(line.lower())
 			singleprint =  True
 		
@@ -866,7 +866,25 @@ Use "help FireStage1" to get more details.
 	'''
 		
 		self.client_call_echo(line)
-		
+	
+	def do_GetClientTimeout(self, line):
+		print "The client is considered disconnected, if no HID communication occures for"
+		print "\t{0} ms".format(P4wnP1.CLIENT_TIMEOUT_MS)
+		print 
+		print "If you encounter disconnection issues (client is processing data to slow) increase"
+		print "this delay with `SetClientTimeout`"
+	
+	def do_SetClientTimeout(self, line):
+		try:
+			val = int(line)
+			if val < 10 or val > 10000:
+				print "Timeout has to be chosenbetween 10ms and 10000ms"
+				return
+			P4wnP1.CLIENT_TIMEOUT_MS = val
+			
+		except ValueError:
+			print "You have to provide a new timeout value in milliseconds"
+	
 	def do_SendDuckyScript(self, line):
 		scriptpath = self.config["PATH_DUCKYSCRIPT"] +  "/" +  line
 		
