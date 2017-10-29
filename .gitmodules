@@ -11,3 +11,6 @@
 [submodule "nexmon"]
 	path = nexmon
 	url = https://github.com/mame82/P4wnP1_nexmon_additions
+[submodule "hostapd-mana"]
+	path = hostapd-mana
+	url = https://github.com/mame82/P4wnP1_hostapd-mana_additions
