@@ -163,6 +163,7 @@ mkdir -p $wdir/collected
 
 
 # create systemd service unit for P4wnP1 startup
+# Note: switched to multi-user.target to make nexmon monitor mode work
 if [ ! -f /etc/systemd/system/P4wnP1.service ]; then
         echo "Injecting P4wnP1 startup script..."
         cat <<- EOF | sudo tee /etc/systemd/system/P4wnP1.service > /dev/null
@@ -182,8 +183,8 @@ if [ ! -f /etc/systemd/system/P4wnP1.service ]; then
                 StandardError=journal+console
 
                 [Install]
-                #WantedBy=multi-user.target
-                WantedBy=sysinit.target
+                WantedBy=multi-user.target
+                #WantedBy=sysinit.target
 EOF
 fi
 

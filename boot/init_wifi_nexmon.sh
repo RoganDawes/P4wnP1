@@ -53,10 +53,10 @@ function WIFI_activate_nexmon()
 	fi
 
 	#backup-firmware (not realy needed as backup firmware is shipped with nexmon additions)
-	if [ ! -f brcmfmac43430-sdio.bin.orig ]; then
-		printf "\033[0;31m  BACKUP\033[0m of brcmfmac43430-sdio.bin written to $(pwd)/brcmfmac43430-sdio.bin.orig\n"
-		sudo cp /lib/firmware/brcm/brcmfmac43430-sdio.bin $nexmondir/brcmfmac43430-sdio.bin.orig
-	fi
+#	if [ ! -f brcmfmac43430-sdio.bin.orig ]; then
+#		printf "\033[0;31m  BACKUP\033[0m of brcmfmac43430-sdio.bin written to $(pwd)/brcmfmac43430-sdio.bin.orig\n"
+#		sudo cp /lib/firmware/brcm/brcmfmac43430-sdio.bin $nexmondir/brcmfmac43430-sdio.bin.orig
+#	fi
 
 	#install-firmware: brcmfmac43430-sdio.bin brcmfmac.ko
 	printf "\033[0;31m  COPYING\033[0m brcmfmac43430-sdio.bin => /lib/firmware/brcm/brcmfmac43430-sdio.bin\n"
@@ -72,6 +72,15 @@ function WIFI_activate_nexmon()
 	printf "\033[0;31m  RELOADING\033[0m brcmfmac\n"
 
 	sudo insmod $nexmondir/brcmfmac.ko
+
+	# activate dual interface mode
+	sleep 1
+	sudo $nexmondir/nexutil -m7
+
+	# activate the monitor interface, in order to avoid that legacy hostapd uses it (wouldn't work)
+	# so this is a dirty hack to let hostapd run on nexmon
+	sleep 1
+	sudo $nexmondir/airmon-ng start wlan0
 }
 
 function WIFI_activate_legacy()

@@ -62,6 +62,15 @@ check_wifi
 if $WIFI; then
 	echo "P4wnP1: Seems WiFi module is present !"
 	iw reg set $WIFI_REG
+
+	source $wdir/boot/init_wifi_nexmon.sh
+	if $WIFI_NEXMON; then
+		# swap firmware and driver
+		WIFI_activate_nexmon
+
+	fi
+
+
 	# start WIFI client
 	if $WIFI_CLIENT; then
 		# try to connect to existing WiFi according to the config
