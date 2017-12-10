@@ -88,6 +88,24 @@ if $WIFI; then
 	# - if WiFi client mode is enabled, but failed and ACCESPOINT mode is enabled
 	if $WIFI_ACCESSPOINT && ( ! $WIFI_CLIENT_CONNECTION_SUCCESS || ! $WIFI_CLIENT); then
 		start_wifi_accesspoint
+		
+		# check if acces point is up and trigger callback
+		# Warning!!! This uses the SSID and isn't tested against hidden SSID configurations
+		(
+			AP_DOWN=true
+			while $AP_DOWN; do
+				iw dev | grep -q -E "ssid $WIFI_ACCESSPOINT_NAME"; res=$?
+				if [ $res == 0 ]; then 
+					AP_DOWN=false
+
+				        if $WIFI_ACCESSPOINT_KARMA && $WIFI_NEXMON; then
+						WIFI_enable_KARMA
+				        fi
+
+					declare -f onAccessPointUp > /dev/null && onAccessPointUp # run only once
+				fi
+			done
+		)&
 	fi
 fi
 
@@ -186,5 +204,6 @@ fi
 
 
 # trigger callback for on boot finished
-#declare -f onBootFinished > /dev/null && onBootFinished # run only once
-
+#(
+#	declare -f onBootFinished > /dev/null && onBootFinished # run only once
+#)&

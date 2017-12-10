@@ -74,7 +74,7 @@ function generate_hostapd_conf()
 		hw_mode=g
 
 		# Use channel 6
-		channel=6
+		channel=$WIFI_ACCESSPOINT_CHANNEL
 
 		# Enable 802.11n
 		ieee80211n=1
@@ -88,8 +88,6 @@ function generate_hostapd_conf()
 		# Accept all MAC addresses
 		macaddr_acl=0
 
-		# Use WPA authentication
-		auth_algs=1
 EOF
 
 	if $WIFI_ACCESSPOINT_HIDE_SSID; then
@@ -106,7 +104,11 @@ EOF
 EOF
 	fi
 
+	if $WIFI_ACCESSPOINT_AUTH; then
 	cat <<- EOF >> /tmp/hostapd.conf
+		# Use WPA authentication
+		auth_algs=1
+
 		# Use WPA2
 		wpa=2
 
@@ -119,14 +121,40 @@ EOF
 		# Use AES, instead of TKIP
 		rsn_pairwise=CCMP
 EOF
+	else
+	cat <<- EOF >> /tmp/hostapd.conf
+		# Both open and shared auth
+		auth_algs=3
+EOF
+	fi
+
+#### Note: KARMA attack is done in firmware now, no need to configure it statically, it gets enabled on-demand ###
+	
+#	# the following options only apply to hostapd-mana and would fail on legacy hostapd
+#	# as hostapd-mana depends on nexmon driver/firmware we check this, too
+#	if $WIFI_ACCESSPOINT_MANA && $WIFI_NEXMON; then
+#	cat <<- EOF >> /tmp/hostapd.conf
+#		enable_mana=1
+#		mana_loud=$WIFI_ACCESSPOINT_KARMA_LOUD
+#EOF
+#	fi
+}
+
+function WIFI_enable_KARMA()
+{
+	$wdir/nexmon/nexutil -s 666 -i -v 1
+}
+
+function WIFI_disable_KARMA()
+{
+	$wdir/nexmon/nexutil -s 666 -i -v 0
 }
 
 function start_wifi_accesspoint()
 {
 	generate_hostapd_conf
 
-	hostapd /tmp/hostapd.conf > /dev/null &
-#	hostapd /tmp/hostapd.conf
+	hostapd -d /tmp/hostapd.conf > /tmp/hostapd.log &
 
 	# configure interface
 	ifconfig wlan0 $WIFI_ACCESSPOINT_IP netmask $WIFI_ACCESSPOINT_NETMASK

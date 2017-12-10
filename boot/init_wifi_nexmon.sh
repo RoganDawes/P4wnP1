@@ -75,12 +75,16 @@ function WIFI_activate_nexmon()
 
 	# activate dual interface mode
 	sleep 1
-	sudo $nexmondir/nexutil -m7
+#	sudo $nexmondir/nexutil -m7 # The nexmon master has been updated with to support dual interface without -m7
 
-	# activate the monitor interface, in order to avoid that legacy hostapd uses it (wouldn't work)
-	# so this is a dirty hack to let hostapd run on nexmon
-	sleep 1
-	sudo $nexmondir/airmon-ng start wlan0
+	
+	sleep 2
+	if $WIFI_NEXMON_BRING_UP_MONITOR_FIRST; then
+		# activate the monitor interface, in order to avoid that legacy hostapd uses it (wouldn't work)
+		# so this is a dirty hack to let legacy hostapd run on nexmon
+		
+		sudo $nexmondir/airmon-ng start wlan0
+	fi
 }
 
 function WIFI_activate_legacy()
