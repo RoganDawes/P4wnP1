@@ -35,22 +35,49 @@ function check_wifi()
 
 function generate_dnsmasq_wifi_conf()
 {
+	if $WIFI_ACCESSPOINT_DNS_FORWARD; then
+		DNS_PORT="53"
+	else
+		DNS_PORT="0"
+	fi
+
 	cat <<- EOF > /tmp/dnsmasq_wifi.conf
 		bind-interfaces
-		port=0
+		port=$DNS_PORT
 		interface=wlan0
 		listen-address=$WIFI_ACCESSPOINT_IP
 		dhcp-range=$WIFI_ACCESSPOINT_DHCP_RANGE,$WIFI_ACCESSPOINT_NETMASK,5m
+EOF
 
-		# router
-		#dhcp-option=3,$WIFI_ACCESSPOINT_IP
+	if $WIFI_ACCESSPOINT_DHCP_BE_GATEWAY; then
+		cat <<- EOF >> /tmp/dnsmasq_wifi.conf
+			# router
+			dhcp-option=3,$WIFI_ACCESSPOINT_IP
+EOF
+	else
+		cat <<- EOF >> /tmp/dnsmasq_wifi.conf
+			# router
+			dhcp-option=3
+EOF
+	fi
 
-		# DNS
-		#dhcp-option=6,$WIFI_ACCESSPOINT_IP
+	if $WIFI_ACCESSPOINT_DHCP_BE_DNS; then
+		cat <<- EOF >> /tmp/dnsmasq_wifi.conf
+			# DNS
+			dhcp-option=6,$WIFI_ACCESSPOINT_IP
+EOF
+	else
+		cat <<- EOF >> /tmp/dnsmasq_wifi.conf
+			# DNS
+			dhcp-option=6
+EOF
+	fi
 
 		# NETBIOS NS
 		#dhcp-option=44,$WIFI_ACCESSPOINT_IP
 		#dhcp-option=45,$WIFI_ACCESSPOINT_IP
+
+	cat <<- EOF >> /tmp/dnsmasq_wifi.conf
 
 		dhcp-leasefile=/tmp/dnsmasq_wifi.leases
 		dhcp-authoritative
