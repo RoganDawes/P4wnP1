@@ -101,6 +101,9 @@ if $WIFI; then
 				        if $WIFI_ACCESSPOINT_KARMA && $WIFI_NEXMON; then
 						WIFI_enable_KARMA
 				        fi
+				        if $WIFI_ACCESSPOINT_KARMA_LOUD && $WIFI_NEXMON; then
+						WIFI_enable_KARMA_LOUD
+				        fi
 
 					declare -f onAccessPointUp > /dev/null && onAccessPointUp # run only once
 				fi

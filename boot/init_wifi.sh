@@ -167,14 +167,26 @@ EOF
 #	fi
 }
 
+
+
 function WIFI_enable_KARMA()
 {
-	$wdir/nexmon/nexutil -s 666 -i -v 1
+	$wdir/nexmon/karmatool.py -k 1
 }
 
 function WIFI_disable_KARMA()
 {
-	$wdir/nexmon/nexutil -s 666 -i -v 0
+	$wdir/nexmon/karmatool.py -k 0
+}
+
+function WIFI_enable_KARMA_LOUD()
+{
+	$wdir/nexmon/karmatool.py -b 1
+}
+
+function WIFI_disable_KARMA_LOUD()
+{
+	$wdir/nexmon/karmatool.py -b 0
 }
 
 function start_wifi_accesspoint()
