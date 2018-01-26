@@ -36,7 +36,7 @@ source $wdir/setup.cfg
 # include payload (overrides variables set by setup.cfg if needed)
 # as the payload could include code (like the hakin9 tutorial), we only
 # import bash variables, using a temporary file
-cat $wdir/payloads/$PAYLOAD | grep "=" > /tmp/payload_vars
+cat $wdir/payloads/$PAYLOAD | grep -e "^\w*=" > /tmp/payload_vars
 source /tmp/payload_vars
 rm /tmp/payload_vars
 
