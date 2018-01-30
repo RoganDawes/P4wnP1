@@ -42,7 +42,7 @@ function prepare_usb_ethernet()
 	
 	ifconfig $USB_BRNAME $IF_IP netmask $IF_MASK
 	
-	for IF in $(ls /sys/class/net | grep usb); do
+	for IF in $(ls /sys/class/net | grep usb | grep -v -e "$USB_BRNAME"); do
 		brctl addif $USB_BRNAME $IF
 		ifconfig $IF up 
 	done
