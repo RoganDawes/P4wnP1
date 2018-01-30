@@ -29,110 +29,26 @@
 # =================================
 # Network init
 # =================================
-function detect_active_interface()
+
+function prepare_usb_ethernet()
 {
-
-
-	# Waiting for one of the interfaces to get a link (either RNDIS or ECM)
-	#    loop count is limited by $RETRY_COUNT_LINK_DETECTION, to continue execution if this is used 
-	#    as blocking boot script
-	#    note: if the loop count is too low, windows may not have enough time to install drivers
-
-	# ToDo: check if operstate could be used for this, without waiting for carrieer
-	active_interface="none"
-
-	# if RNDIS and ECM are active check which gets link first
-	# Note: Detection for RNDIS (usb0) is done first. In case it is active, link availability
-	#	for ECM (usb1) is checked anyway (in case both interfaces got link). This is done
-	#	to use ECM as prefered interface on MacOS and Linux if both, RNDIS and ECM, are supported.
-	if $USE_RNDIS && $USE_ECM; then
-		# bring up both interfaces to check for physical link
-		ifconfig usb0 up
-		ifconfig usb1 up
-
-		echo "CDC ECM and RNDIS active. Check which interface has to be used via Link detection"
-		while [ "$active_interface" == "none" ]; do
-		#while [[ $count -lt $RETRY_COUNT_LINK_DETECTION ]]; do
-			printf "."
-
-			if [[ $(</sys/class/net/usb0/carrier) == 1 ]]; then
-				# special case: macOS/Linux Systems detecting RNDIS should use CDC ECM anyway
-				# make sure ECM hasn't come up, too
-				sleep 0.5
-				if [[ $(</sys/class/net/usb1/carrier) == 1 ]]; then
-					echo "Link detected on usb1"; sleep 2
-					active_interface="usb1"
-					ifconfig usb0 down
-
-					break
-				fi
-
-				echo "Link detected on usb0"; sleep 2
-				active_interface="usb0"
-				ifconfig usb1 down
-
-				break
-			fi
-
-			# check ECM for link
-			if [[ $(</sys/class/net/usb1/carrier) == 1 ]]; then
-				echo "Link detected on usb1"; sleep 2
-				active_interface="usb1"
-				ifconfig usb0 down
-
-				break
-			fi
-
-
-			sleep 0.5
-		done
-	fi
-
-	# if eiter one, RNDIS or ECM is active, wait for link on one of them
-	if ($USE_RNDIS && ! $USE_ECM) || (! $USE_RNDIS && $USE_ECM); then 
-		# bring up interface
-		ifconfig usb0 up
-
-		echo "CDC ECM or RNDIS active. Check which interface has to be used via Link detection"
-		while [ "$active_interface" == "none" ]; do
-			printf "."
-
-			if [[ $(</sys/class/net/usb0/carrier) == 1 ]]; then
-				echo "Link detected on usb0"; sleep 2
-				active_interface="usb0"
-				break
-			fi
-		done
-	fi
-
-
-	# setup active interface with correct IP
-	if [ "$active_interface" != "none" ]; then
-		ifconfig $active_interface $IF_IP netmask $IF_MASK
-	fi
-
-
-	# if active_interface not "none" (RNDIS or CDC ECM are running)
-#	if [ "$active_interface" != "none" ]; then
-#		# setup DHCP server
-#		start_DHCP_server
-#
-#		# call onNetworkUp() from payload
-#		declare -f onNetworkUp > /dev/null && onNetworkUp
-#
-#		# wait for client to receive DHCP lease
-#		target_ip=""
-#		while [ "$target_ip" == "" ]; do
-#			target_ip=$(cat /tmp/dnsmasq.leases | cut -d" " -f3)
-#		done
-#
-#		# call onNetworkUp() from payload
-#		declare -f onTargetGotIP > /dev/null && onTargetGotIP
-#	fi
-
+	USB_BRNAME=usbeth
+	active_interface=$USB_BRNAME # backwards compatibility (used in callbacks)
+	
+	# prepare bridge interface (will include bnep ifaces for connected devices)
+	brctl addbr $USB_BRNAME # add bridge interface
+	brctl setfd $USB_BRNAME 0 # set forward delay to 0 ms
+	brctl stp $USB_BRNAME off # disable spanning tree 
+	
+	ifconfig $USB_BRNAME $IF_IP netmask $IF_MASK
+	
+	for IF in $(ls /sys/class/net | grep usb); do
+		brctl addif $USB_BRNAME $IF
+		ifconfig $IF up 
+	done
 }
 
-function create_DHCP_config()
+function create_usb_ethernet_DHCP_config()
 {
 	# create DHCP config file for dnsmasq
 	echo "P4wnP1: Creating DHCP configuration for Ethernet over USB..."
