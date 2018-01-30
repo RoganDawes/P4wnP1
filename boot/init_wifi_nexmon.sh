@@ -36,6 +36,7 @@ nexmondir="$wdir/nexmon"
 # check for wifi capability
 function check_wifi()
 {
+	echo "WiFi check init_wifi_nexmon"
 	if $wdir/wifi/check_wifi.sh; then WIFI=true; else WIFI=false; fi
 }
 

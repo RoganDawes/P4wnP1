@@ -63,7 +63,7 @@
 # General setup
 # =============================
 
-# every option left out defaults to the valur from setup.cfg
+# every unspecified option inherits its value from defaults.conf
 
 USB_VID="0x1D6B"        # Vendor ID
 USB_PID="0x0237"        # Product ID (reuse from network-only, as USB host sees the same device interfaces)
@@ -78,7 +78,7 @@ ROUTE_SPOOF=false		# no route spoofing, as this referes to ECM/RNDIS
 WPAD_ENTRY=false		# no WPAD over DHCP, as this referes to ECM/RNDIS
 
 
-BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via IP configured in setup.cfg (BLUETOOTH_NAP_IP)
+BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via IP configured in defaults.conf (BLUETOOTH_NAP_IP)
 
 WIFI_REG=US
 WIFI_ACCESSPOINT=true

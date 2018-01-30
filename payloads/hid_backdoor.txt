@@ -41,14 +41,14 @@ ROUTE_SPOOF=false
 # use LED based HID keyboard test
 USE_HID_TEST=true
 
-# overwrite keyboard language from setup.cfg
+# overwrite keyboard language from defaults.conf
 lang="us" 
 
 # blink one time when payload script get's initiated
 led_blink 1 # usage at thi point is invalid, as the script gets called again on SSH login
 
 WIFI_ACCESSPOINT=true # enable WiFi AccessPoint
-BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via IP configured in setup.cfg (BLUETOOTH_NAP_IP)
+BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via IP configured in defaults.conf (BLUETOOTH_NAP_IP)
 
 function onKeyboardUp()
 {

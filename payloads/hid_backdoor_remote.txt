@@ -94,7 +94,7 @@ WIFI_ACCESSPOINT_NETMASK="255.255.255.0"
 WIFI_ACCESSPOINT_DHCP_RANGE="172.24.0.2,172.24.0.100" # DHCP Server IP Range
 WIFI_ACCESSPOINT_HIDE_SSID=false # don't hide ESSID
 
-BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via BT on IP configured in setup.cfg (BLUETOOTH_NAP_IP)
+BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via BT on IP configured in defaults.conf (BLUETOOTH_NAP_IP)
 
 
 
@@ -128,7 +128,7 @@ ROUTE_SPOOF=false
 # use LED based HID keyboard test
 USE_HID_TEST=true
 
-# overwrite keyboard language from setup.cfg
+# overwrite keyboard language from defaults.conf
 # Note: The HID backdoor server uses an own language setting, which isn't influenced
 #       by this option.
 #       The HID backdoor keyboard language could be changed in

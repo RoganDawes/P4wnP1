@@ -19,7 +19,7 @@
 
 
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
-source $wdir/setup.cfg
+source $wdir/defaults.conf
 
 DEFAULT_COMMENT="AutoSSH reachback"
 

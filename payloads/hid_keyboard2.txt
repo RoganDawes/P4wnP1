@@ -32,7 +32,7 @@
 USB_VID="0x1d6b"        # Vendor ID
 USB_PID="0x1230"        # Product ID
 
-# Overwrite default settings (setup.cfg) for keyboard funtion
+# Overwrite default settings (defaults.conf) for keyboard funtion
 USE_RNDIS=false          # if true RNDIS will be enabled
 USE_HID=true            # if true HID (keyboard) will be enabled
 
@@ -62,7 +62,7 @@ EOF
 	echo "If output uses wrong keyboard layout, change the 'lang' parameter in the payload script" | outhid
 	echo "The payload uses the result of the 'key_trigger' to decide how to go on... " | outhid
 	echo "... so grab a copy and modify it to your needs" | outhid
-	echo "In order to run a different payload, modify 'PAYLOAD' in setup.cfg" | outhid
+	echo "In order to run a different payload, modify 'PAYLOAD' in startup_payload.conf" | outhid
 
 	while $true; do
 		# multiple command outputs pipe to single "outhid" call

@@ -18,7 +18,7 @@
 #    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# Enable AutoSSH reachback connection according to the settings of setup.cfg or current payload
+# Enable AutoSSH reachback connection according to the settings of payload (or defaults.conf if not specified in payload) or current payload
 
 function start_autossh()
 {

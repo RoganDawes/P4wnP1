@@ -81,13 +81,8 @@ sudo bash -c "echo nameserver 8.8.8.8 >> /etc/resolv.conf"
 
 # install pycrypto
 echo "Installing needed python additions..."
-# Fix: issue of conflicting filename 'setup.cfg' with paython setuptools
-# Reported by  PoSHMagiC0de
-# https://github.com/mame82/P4wnP1/issues/52#issuecomment-325236711
-mv setup.cfg setup.bkp
 sudo pip install pycrypto # already present on stretch
 sudo pip install pydispatcher
-mv setup.bkp setup.cfg
 
 # Installing Responder isn't needed anymore as it is packed into the Repo as submodule
 #echo "Installing Responder (patched MaMe82 branch with Internet connection emulation and wpad additions)..."
@@ -261,7 +256,7 @@ sudo rpi-update 23a007716a0c6a8677097be859cf7063ae093d27
 
 
 echo "Generating keypair for use with AutoSSH..."
-source $wdir/setup.cfg
+source $wdir/defaults.conf
 
 mkdir -p -- "$(dirname -- "$AUTOSSH_PRIVATE_KEY")"
 
@@ -293,8 +288,8 @@ echo "          SSH access:    pi@172.24.0.1 (password: raspberry)"
 echo
 echo "  or via Bluetooth NAP:    pi@172.26.0.1 (password: raspberry)"
 echo
-echo "Go to your installation directory. From there you can alter the settings in the file 'setup.cfg',"
-echo "like payload and language selection"
+echo "Go to your installation directory. From there you can alter the settings in the file 'defaults.conf'."
+echo "Payload selection is done from 'startup_payload.conf'"
 echo 
 echo "If you're using a Pi Zero W, give the HID backdoor a try ;-)"
 echo

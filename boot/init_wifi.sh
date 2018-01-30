@@ -25,6 +25,7 @@
 # check for wifi capability
 function check_wifi()
 {
+	echo "WiFi check init_wifi"
 	if $wdir/wifi/check_wifi.sh; then WIFI=true; else WIFI=false; fi
 }
 

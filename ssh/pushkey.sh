@@ -19,7 +19,7 @@
 
 
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
-source $wdir/setup.cfg
+source $wdir/defaults.conf
 
 read -p "Enter remote SSH host to push the key on ($AUTOSSH_REMOTE_HOST): " REMOTE_HOST
 REMOTE_HOST=${REMOTE_HOST:-"$AUTOSSH_REMOTE_HOST"}

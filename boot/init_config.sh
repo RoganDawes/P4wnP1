@@ -21,14 +21,16 @@
 
 # load global configuration variables
 
-# include setup.cfg
-source $wdir/setup.cfg
+# include startup config
+source $wdir/defaults.conf
+source $wdir/startup_payload.conf
 
-# include payload (overrides variables set by setup.cfg if needed)
-# PAYLOAD itself is define in setup.cfg
+# include payload (overrides variables set by defaults.conf if needed)
+# PAYLOAD itself is defined in startup_payload.conf
 source $wdir/payloads/$PAYLOAD
 
 # check for wifi capability
+echo "WiFi check init_config"
 if $wdir/wifi/check_wifi.sh; then WIFI=true; else WIFI=false; fi
 
 # set variable for USB gadget directory

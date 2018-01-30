@@ -93,7 +93,7 @@ Here's a version of someone doing this much better, thanks @Seytonic
 7. If the ´password of the user who locked the box is weakly chosen, chances are high that John the Ripper will be able to crack it, which leads to...
 8. ... **P4wnP1** ultimately enters the password, in order to unlock the box and you're able to access the box (the cracked password is stored in `collected` folder, along with the hashes).
 
-The payload `Win10_LockPicker.txt` has to be chosen in `setup.cfg` to carry out the attack. **It is important to modify the payloads "lang" parameter to your target's language**. If you attach a HDMI monitor to P4wnP1, you could watch the status output of the attack (including captured hash and plain creds, if you made it this far).
+The payload `Win10_LockPicker.txt` has to be chosen in `startup_payload.conf` to carry out the attack. **It is important to modify the payloads "lang" parameter to your target's language**. If you attach a HDMI monitor to P4wnP1, you could watch the status output of the attack (including captured hash and plain creds, if you made it this far).
 
 ## Payload: Stealing Browser credentials (hakin9_tutorial)
 
@@ -180,7 +180,7 @@ The video is produced by @Seytonic, you should check out his youtube channel wit
 
 ### 1. Preparation
 
-- Choose the `hid_backdoor.txt` payload in `setup.cfg` (using the interactive USB OTG mode or one of the payloads with SSH network access, like `network_only.txt`)
+- Choose the `hid_backdoor.txt` payload in `startup_payload.conf` (using the interactive USB OTG mode or one of the payloads with SSH network access, like `network_only.txt`)
 - Attach P4wnp1 to the target host (Windows 7 to 10)
 
 ### 2. Access the P4wnP1 backdoor shell
@@ -276,7 +276,7 @@ Advanced payload features
 	- **onTargetGotIP** (if the target received an IP, the IP could be accessed from the payload script)
 	- **onKeyboardUp** (when keyboard driver installation on target has finished and keyboard is usable)
 	- **onLogin** (when a user logs in to P4wnP1 via SSH)
-- configuration can be done globally (`setup.cfg`) or overwritten per payload (if the same parameter is defined in the payload script)
+- configuration can be done globally (`defaults.conf`) or overwritten per payload (if the same parameter is defined in the payload script)
 - settings include:
     - USB config (Vendor ID, Product ID, **device types to enable** ...)
     - WiFi config (SSID, password ...)
@@ -339,10 +339,11 @@ or via WiFi
 	Key: MaMe82-P4wnP1
 
 
-From there you could alter `setup.cfg` to change the current payload (`PAYLOAD` parameter) and keyboard language (`LANG` parameter).
+From there you could alter `startup_payload.conf` to change the current payload (`PAYLOAD` parameter) or `defaults.conf` to change default settings like keyboard language (`LANG` parameter).
+The latter are only default parameters, which are only used if not specified in the chosen payload itself.
 
 Caution:
-If the chosen payload overwites the global `LANG` parameter (like the hid_keyboard demo payloads), you have to change the `LANG` parameter in the payload, too. If your remove the `LANG` parameter from the payload, the setting from `setup.cfg` is taken. In short words, settings in payloads have higher priority than settings in `setup.cfg`
+If the chosen payload overwites the global `LANG` parameter (like the hid_keyboard demo payloads), you have to change the `LANG` parameter in the payload, too. If your remove the `LANG` parameter from the payload, the setting from `defaults.conf` is used. In short words, parameters defined in payloads have higher priority than parameters defined in `defaults.conf`
 
 Requirements
 ============

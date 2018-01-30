@@ -20,7 +20,7 @@
 
 
 #
-# inits USB gadget according to config (setup.cfg)
+# inits USB gadget according to config (payload, if not specified in payload according to defaults.conf)
 
 # set variable for USB gadget directory
 GADGETS_DIR="mame82gadget"

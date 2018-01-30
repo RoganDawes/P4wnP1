@@ -24,16 +24,17 @@
 
 # This script is ran by a dedicated service, not by the main P4wnP1 boot service
 # (because we are depending on d-bus, which is available late at boot).
-# Because of this fact the settings of setup.cfg and the current payload have
+# Because of this fact the settings of setup.conf and the current payload have
 # to be imported, without executing the payload again.
 
 # source in configurations
 ############
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
-# include setup.cfg (calling source is fine, as no code should be included)
-source $wdir/setup.cfg
+# include defaults.conf and payload selection (calling source is fine, as no code should be included)
+source $wdir/defaults.conf
+source $wdir/startup_payload.conf
 
-# include payload (overrides variables set by setup.cfg if needed)
+# include payload (overrides variables set by defaults.conf if needed)
 # as the payload could include code (like the hakin9 tutorial), we only
 # import bash variables, using a temporary file
 cat $wdir/payloads/$PAYLOAD | grep -e "^\w*=" > /tmp/payload_vars

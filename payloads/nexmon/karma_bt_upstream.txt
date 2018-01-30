@@ -113,7 +113,7 @@
 # General setup
 # =============================
 
-# every option left out defaults to the valur from setup.cfg
+# every unspecified option inherits the default value from defaults.conf
 
 USB_VID="0x1D6B"        # Vendor ID
 USB_PID="0x0237"        # Product ID (reuse from network-only, as USB host sees the same device interfaces)

@@ -36,7 +36,7 @@ USE_RNDIS=true      # RNDIS network device to enable hash stealing
 USE_HID=true        # HID keyboard to allow entering cracked password
 USE_UMS=false # enable USB Mass Storage
 
-lang="us" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET or remove this line to use the setting from setup.cfg
+lang="us" # MAKE THE KEYBOARD LANGUAGE MATCH THE TARGET or remove this line to use the setting from defaults.conf
 
 function onKeyboardUp()
 {
