@@ -68,8 +68,10 @@ def blink(count, delay_off, delay_on):
 				brightness.seek(0)
 				time.sleep(delay_off)
 
+	# fix ownership
+	os.chown(filepath, pwd.getpwnam(uid).pw_uid, grp.getgrnam(gid).gr_gid)
+	os.chmod(filepath, 0o666)
 
-	
 
 prepare()
 
@@ -85,8 +87,8 @@ with open(filepath, "r") as f:
 
 		#print "File contains {0}".format(count)
 		#print repr(value)
-		
+
 		blink(count, DELAY_BLINK, DELAY_BLINK)
 		time.sleep(DELAY_PAUSE)
 
-		
+
