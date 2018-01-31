@@ -220,7 +220,6 @@ function init_usb()
 	sleep 0.2
 	
 	
-	ls -la /dev/hidg*
 	# store device names to file 
 	##############################
 	if $USE_HID; then
@@ -234,9 +233,76 @@ function init_usb()
 	if $USE_HID_MOUSE; then
 		udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_MOUSE) > /tmp/device_hid_mouse
 	fi
-	
-	ls -la /dev/hidg*
 }
+
+function deinit_usb()
+{
+	# check if configfs allows gadget configuration
+	if [ ! -d "/sys/kernel/config/usb_gadget" ]; then 
+		echo "No gadget configuration support via configfs"
+		return
+	else
+		echo "Gadget configuration via configfs enabled..."
+	fi
+
+	for gadget_name in $(ls /sys/kernel/config/usb_gadget); do 
+		echo "Gadget found '$gadget_name' ... deinitializing ..."
+
+		gfldr="/sys/kernel/config/usb_gadget/$gadget_name"
+
+
+		# unbind from UDC
+		echo "Unbind gadget '$gadget_name' from UDC ..."
+		echo "" > $gfldr/UDC
+
+		# iterate over configurations
+		for config_name in $(ls $gfldr/configs); do 
+			echo "Found config '$config_name', deleting ..."
+			cfldr="$gfldr/configs/$config_name"
+
+			echo "    Removing functions from configuration '$config_name' ..."
+
+			# find and remove linked functions
+			lnfunctions=$(ls -l $cfldr | grep "lrwxrwxrwx" | awk '{print $9}')
+			for function_name in $lnfunctions; do
+				echo "    Unlinking function '$function_name'"
+				rm $cfldr/$function_name
+			done
+
+			# remove strings directories from configuration
+			for strdir in $(ls $cfldr/strings); do
+				echo "    Removing string dir '$strdir' from configuration"
+				rmdir $cfldr/strings/$strdir
+			done
+
+			# check if there's an os_desc linking the configuration
+			if [ -d "$gfldr/os_desc/$config_name" ]; then 
+				echo "    Deleting link to '$config_name' from gadgets OS descriptor"
+				rm $gfldr/os_desc/$config_name
+			fi
+
+			# remove config folder at all
+			echo "    Deleting configuration '$config_name'"
+			rmdir $cfldr
+		done
+
+		# remove functions
+		echo "Removing functions from '$gadget_name'"
+		rmdir -v $gfldr/functions/*
+
+		# remove strings from gadget
+		for strdir in $(ls $gfldr/strings); do
+			echo "Removing string dir '$strdir' from '$gadget_name'"
+			rmdir $gfldr/strings/$strdir
+		done
+
+		# Remove whole gadget
+		echo "Removing gadget ..."
+		rmdir -v $gfldr
+
+	done
+}
+
 
 # this could be use to re init USB gadget with different settings
 function reinit_usb()
