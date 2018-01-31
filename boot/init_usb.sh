@@ -134,12 +134,18 @@ function init_usb()
 	if $USE_UMS; then
 		mkdir -p functions/mass_storage.usb0
 		echo 1 > functions/mass_storage.usb0/stall # allow bulk EPs
-		echo 0 > functions/mass_storage.usb0/lun.0/cdrom # don't emulate CD-ROm
-		echo 0 > functions/mass_storage.usb0/lun.0/ro # write acces
+		if $UMS_CDROM; then
+			echo 1 > functions/mass_storage.usb0/lun.0/cdrom # emulate CD-ROm
+		else
+			echo 0 > functions/mass_storage.usb0/lun.0/cdrom # don't emulate CD-ROm
+		fi
+
+		echo 0 > functions/mass_storage.usb0/lun.0/ro # write acces (using ro for CD-Rom resulted in a ro mounted root partition on P4wnP1)
+
 		# enable Force Unit Access (FUA) to make Windows write synchronously
 		# this is slow, but unplugging the stick without unmounting works
-		echo 0 > functions/mass_storage.usb0/lun.0/nofua 
-		echo $wdir/USB_STORAGE/image.bin > functions/mass_storage.usb0/lun.0/file
+		echo 0 > functions/mass_storage.usb0/lun.0/nofua
+		echo $wdir/$UMS_FILE_PATH > functions/mass_storage.usb0/lun.0/file
 	fi
 
 	# Create ACM serial adapter (disable, use SSH)
