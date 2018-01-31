@@ -147,7 +147,8 @@ sudo chmod a+r /var/www/index.html
 
 # create 128 MB image for USB storage
 echo "Creating 128 MB image for USB Mass Storage emulation"
-mkdir -p $wdir/USB_STORAGE
+# the folder USB_STORAGE should already exist, as a test ISO for CDRom emulation is included
+# mkdir -p $wdir/USB_STORAGE
 dd if=/dev/zero of=$wdir/USB_STORAGE/image.bin bs=1M count=128
 mkdosfs $wdir/USB_STORAGE/image.bin
 
