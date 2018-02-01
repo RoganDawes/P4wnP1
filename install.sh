@@ -172,7 +172,9 @@ if [ ! -f /etc/systemd/system/P4wnP1.service ]; then
                 #Type=oneshot
                 Type=forking
                 RemainAfterExit=yes
-                ExecStart=/bin/bash $wdir/boot/boot_P4wnP1
+		# start both while porting bootscript to shm
+		ExecStart=/bin/bash -c "/bin/bash $wdir/boot/2boot_P4wnP1; /bin/bash $wdir/boot/boot_P4wnP1"
+                #ExecStart=/bin/bash $wdir/boot/boot_P4wnP1
                 StandardOutput=journal+console
                 StandardError=journal+console
 
@@ -230,6 +232,13 @@ sudo ln -fs /etc/systemd/system/autologin@.service /etc/systemd/system/getty.tar
 # be possible from other Pi to ease up Internet connection)
 echo "Enable overlay filesystem for USB gadgedt suport..."
 sudo sed -n -i -e '/^dtoverlay=/!p' -e '$adtoverlay=dwc2' /boot/config.txt
+
+# deploy custom commands
+echo "Deploying custom commands"
+olddir=$(pwd)
+cd $wdir/helper
+./install_helpers.sh
+cd $olddir
 
 # add libcomposite to /etc/modules
 echo "Enable kernel module for USB Composite Device emulation..."

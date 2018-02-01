@@ -23,7 +23,7 @@ import pwd
 import grp
 import time
 
-filepath = "/tmp/blink_count"
+filepath = "/dev/shm/blink_count"
 uid="pi"
 gid="pi"
 ledpath = "/sys/class/leds/led0/"

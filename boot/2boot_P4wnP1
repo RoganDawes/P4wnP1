@@ -1,0 +1,48 @@
+#!/bin/sh
+
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+#
+# P4wnP1 startup script
+# 	Author:	Marcus Mengs (MaMe82)
+#
+# Notes:
+#	- work in progress (contains possible errors and typos)
+#	- if the device isn't detected changing the USB port (USB 2.0 prefered) or plug out and in
+#	  again could help
+#
+# ToDo:
+#	- add manual system date adjusment, to not mess up logs due to missing NTP (store datetime of last boot)
+#	- add shutdown capability to script, to allow file system syncing before power loss (could be done from 
+#	payload by calling "sync && sudo halt")
+
+
+# find working dir of script
+wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
+
+setoption wdir "$wdir" # store working directory to shared memory
+setoptionsfile $wdir/defaults.conf # populate default settings to shared memory
+setoptionsfile $wdir/startup_payload.conf # store PAYLOAD selection to shared memory
+setoptionsfile "$(getoption wdir)/payloads/$(getoption PAYLOAD)" # populate setting from payload file (ToDo: replace by 'setoption' calls in payload)
+
+
+#### LED #######
+# start LED control in background
+echo "Start LED count polling ..."
+python $wdir/ledtool/ledtool.py&
+

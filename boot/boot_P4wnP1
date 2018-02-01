@@ -37,7 +37,7 @@ wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
 
 echo =================================== P4wnP1 startup ===========================================
 echo "P4wnP1: Init LED control..."
-source $wdir/boot/init_led.sh
+#source $wdir/boot/init_led.sh
 
 echo "P4wnP1: Loading config ..."
 source $wdir/boot/init_config.sh
