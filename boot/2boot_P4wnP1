@@ -32,6 +32,8 @@
 #	payload by calling "sync && sudo halt")
 
 
+### Deploy global configuration to shared memory ####
+echo "P4wnP1: Loading config ..."
 # find working dir of script
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
 
@@ -46,3 +48,10 @@ setoptionsfile "$(getoption wdir)/payloads/$(getoption PAYLOAD)" # populate sett
 echo "Start LED count polling ..."
 python $wdir/ledtool/ledtool.py&
 
+##### Start USB gadget #####
+echo "P4wnP1: Initializing USB gadget ..."
+init_usb
+
+# ToDo: This is only needed if USB ethernet is enabled ('usbeth' interface exists)
+echo "Setting up USB ethernet"
+init_usb_ethernet

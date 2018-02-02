@@ -25,14 +25,39 @@
 # set variable for USB gadget directory
 GADGETS_DIR="mame82gadget"
 
+
 function init_usb()
 {
+	### INPUT OTIONS
+	
+	# USB_VID
+	# USB_PID
+	# USE_RNDIS
+	# USE_ECM
+	# USE_HID
+	# USE_RAWHID
+	# USE_HID_MOUSE
+	# USE_UMS
+	# UMS_CDROM
+	# UMS_FILE_PATH
+	# wdir
+	
+	### OUTPUT OPTIONS
+	
+	# device_hid_keyboard (optional)
+	# device_hid_raw (optional)
+	# device_hid_mouse (optional)
+	
 	# check if there's already a gadget_configuration running
 	if is_gadget_running; then
 		echo "There's already a gadget configuration ... deinitializing old gadget"
 		deinit_usb
 	fi
 	
+	if detect_usb_hostmode; then
+		echo "The Pi is running in USB OTG mode, aborting gadget creation ..."
+		return 1
+	fi
 	
 	# ====================
 	# USB Init
@@ -41,6 +66,10 @@ function init_usb()
 	# configure USB gadget to provide (RNDIS like) ethernet interface
 	# see http://isticktoit.net/?p=1383
 	# ----------------------------------------------------------------
+
+	echo
+	echo "Creating USB composite device..."
+	echo "======================================================"
 
 	cd /sys/kernel/config/usb_gadget
 	mkdir -p $GADGETS_DIR
@@ -80,29 +109,38 @@ function init_usb()
 	echo 250 > configs/c.1/MaxPower
 	echo 0x80 > configs/c.1/bmAttributes #  USB_OTG_SRP | USB_OTG_HNP
 
+	local USB_ETHERNET=false
+
 	# create RNDIS function
 	# =======================================================
 	if $(getoption USE_RNDIS); then
+		echo "... adding RNDIS function"
 		mkdir -p functions/rndis.usb0
 		# set up mac address of remote device
 		echo "42:63:65:13:34:56" > functions/rndis.usb0/host_addr
 		# set up local mac address
 		echo "42:63:65:66:43:21" > functions/rndis.usb0/dev_addr
+		
+		USB_ETHERNET=true
 	fi
 
 	# create CDC ECM function
 	# =======================================================
 	if $(getoption USE_ECM); then
+		echo "... adding CDC ECM function"
 		mkdir -p functions/ecm.usb1
 		# set up mac address of remote device
 		echo "42:63:65:12:34:56" > functions/ecm.usb1/host_addr
 		# set up local mac address
 		echo "42:63:65:65:43:21" > functions/ecm.usb1/dev_addr
+		
+		USB_ETHERNET=true
 	fi
 
 	# create HID function
 	# =======================================================
 	if $(getoption USE_HID); then
+		echo "... adding HID keyboard function"
 		mkdir -p functions/hid.g1
 		PATH_HID_KEYBOARD="/sys/kernel/config/usb_gadget/$GADGETS_DIR/functions/hid.g1/dev"
 		echo 1 > functions/hid.g1/protocol
@@ -114,6 +152,7 @@ function init_usb()
 	# create RAW HID function
 	# =======================================================
 	if $(getoption USE_RAWHID); then
+		echo "... adding HID custom device function"
 		mkdir -p functions/hid.g2
 		PATH_HID_RAW="/sys/kernel/config/usb_gadget/$GADGETS_DIR/functions/hid.g2/dev"
 		echo 1 > functions/hid.g2/protocol
@@ -125,6 +164,7 @@ function init_usb()
 	# create HID mouse function
 	# =======================================================
 	if $(getoption USE_HID_MOUSE); then
+		echo "... adding HID mouse function"
 		mkdir -p functions/hid.g3
 		PATH_HID_MOUSE="/sys/kernel/config/usb_gadget/$GADGETS_DIR/functions/hid.g3/dev"
 		echo 2 > functions/hid.g3/protocol
@@ -137,11 +177,14 @@ function init_usb()
 	# Create USB Mass storage
 	# ==============================
 	if $(getoption USE_UMS); then
+		printf "... adding USB Mass Storage function "
 		mkdir -p functions/mass_storage.usb0
 		echo 1 > functions/mass_storage.usb0/stall # allow bulk EPs
 		if $(getoption UMS_CDROM); then
 			echo 1 > functions/mass_storage.usb0/lun.0/cdrom # emulate CD-ROm
+			printf "(CDROM)\n"
 		else
+			printf "(flashdrive)\n"
 			echo 0 > functions/mass_storage.usb0/lun.0/cdrom # don't emulate CD-ROm
 		fi
 
@@ -229,14 +272,28 @@ function init_usb()
 	##############################
 	if $(getoption USE_HID); then
 		udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_KEYBOARD) > /tmp/device_hid_keyboard
+		setoption device_hid_keyboard $(udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_KEYBOARD))
+	else
+		deloption device_hid_keyboard
 	fi
 	
 	if $(getoption USE_RAWHID); then
 		udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_RAW) > /tmp/device_hid_raw
+		setoption device_hid_raw $(udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_RAW))
+	else
+		deloption device_hid_raw
 	fi
 	
 	if $(getoption USE_HID_MOUSE); then
 		udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_MOUSE) > /tmp/device_hid_mouse
+		setoption device_hid_mouse $(udevadm info -rq name  /sys/dev/char/$(cat $PATH_HID_MOUSE))
+	else
+		deloption device_hid_mouse
+	fi
+
+	echo "Use USB Ethernet: $USB_ETHERNET"	
+	if $USB_ETHERNET; then
+		prepare_usb_ethernet
 	fi
 }
 
@@ -258,6 +315,10 @@ function is_gadget_running()
 
 function deinit_usb()
 {
+	echo
+	echo "Deinit USB gadget"
+	echo "====================================="
+
 	# check if configfs allows gadget configuration
 	if [ ! -d "/sys/kernel/config/usb_gadget" ]; then 
 		echo "No gadget configuration support via configfs"
@@ -265,6 +326,9 @@ function deinit_usb()
 	else
 		echo "Gadget configuration via configfs enabled..."
 	fi
+
+	# delete the bridge for eth over USB if existing
+	deinit_usb_ethernet
 
 	for gadget_name in $(ls /sys/kernel/config/usb_gadget); do 
 		echo "Gadget found '$gadget_name' ... deinitializing ..."
@@ -340,13 +404,43 @@ function detect_usb_hostmode()
 {
 	if grep -q "DCFG=0x00000000" /sys/kernel/debug/20980000.usb/state; then
 		echo "USB OTG Mode"
-#		echo "As P4wnP1 is detected to run in Host (interactive) mode, we abort device setup now!"
 		OTG_MODE=true
 		setoption OTG_MODE true
+		return 0
 	else
-		echo "USB OTG off, going on with P4wnP1 boot"
 		OTG_MODE=false
 		setoption OTG_MODE false
+		return 1
 	fi
 }
 
+USB_BRNAME=usbeth
+function prepare_usb_ethernet()
+{
+	printf "... preparing network interface for USB ethernet on $USB_BRNAME"
+	active_interface=$USB_BRNAME # backwards compatibility (used in callbacks)
+	
+	# prepare bridge interface (will include bnep ifaces for connected devices)
+	brctl addbr $USB_BRNAME # add bridge interface
+	brctl setfd $USB_BRNAME 0 # set forward delay to 0 ms
+	brctl stp $USB_BRNAME off # disable spanning tree 
+	
+	#ifconfig $USB_BRNAME $IF_IP netmask $IF_MASK
+	ifconfig $USB_BRNAME up
+
+	for IF in $(ls /sys/class/net | grep usb | grep -v -e "$USB_BRNAME"); do
+		brctl addif $USB_BRNAME $IF
+		ifconfig $IF up 
+	done
+	printf  " ... done\n"
+}
+
+function deinit_usb_ethernet()
+{
+	# check if Ethernet over USB bridge exists
+	if sudo brctl show | grep -q -e $USB_BRNAME; then 
+		echo "Deleting ethernet over USB interface '$USB_BRNAME' ..."
+		sudo ifconfig usbeth down
+		sudo brctl delbr usbeth
+	fi
+}

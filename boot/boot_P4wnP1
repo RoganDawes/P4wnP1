@@ -36,7 +36,7 @@
 wdir=$( cd $(dirname $BASH_SOURCE[0]) && cd .. && pwd)
 
 echo =================================== P4wnP1 startup ===========================================
-echo "P4wnP1: Init LED control..."
+
 #source $wdir/boot/init_led.sh
 
 echo "P4wnP1: Loading config ..."
@@ -47,14 +47,12 @@ touch /tmp/profile.sh
 echo "#!/bin/bash" >> /tmp/profile.sh
 echo "wdir=$wdir" >> /tmp/profile.sh
 echo "lang=$lang" >> /tmp/profile.sh
-#echo $(declare -p ledtrigger | cut -d" " -f3) >> /tmp/profile.sh
-#declare -f led_blink >> /tmp/profile.sh
 declare -f onLogin >> /tmp/profile.sh
 chown pi:pi /tmp/profile.sh
 
-echo "P4wnP1: Initializing USB gadget ..."
-source $wdir/boot/init_usb.sh
-init_usb
+#echo "P4wnP1: Initializing USB gadget ..."
+#source $wdir/boot/init_usb.sh
+#init_usb
 
 echo "P4wnP1: Checking for WiFi capabilities ..."
 source $wdir/boot/init_wifi.sh
@@ -122,10 +120,10 @@ else
 	echo "P4wnP1: ... USB gadget initialized"
 fi
 
-# check if ethernet over USB should be used
-if $USB_RNDIS || $USB_ECM; then 
-	USB_ETHERNET=true 
-fi
+## check if ethernet over USB should be used
+#if $USB_RNDIS || $USB_ECM; then 
+#	USB_ETHERNET=true 
+#fi
 
 # change hostname to make P4wnP1 resolveable on "name.local"
 if $WIFI || $USB_ETHERNET; then
@@ -144,35 +142,35 @@ fi
 
 
 # if ethernet over USB is in use, detect active interface and start DHCP (all as background job)
-if $USB_ETHERNET; then
-	echo "P4wnP1: Initializing Ethernet over USB..."
-	source $wdir/boot/init_usb_ethernet.sh
-
-	prepare_usb_ethernet # create bridge interface and add RNDIS + CDC ECM, if applicable
-
-	create_usb_ethernet_DHCP_config
-	
-
-	(
-		dnsmasq -C /tmp/dnsmasq_usb_eth.conf
-	
-		# callback onNetworkUp() of payload script
-		declare -f onNetworkUp > /dev/null && onNetworkUp
-	)&
-
-	(
-		# wait for client to receive DHCP lease
-		target_ip=""
-		while [ "$target_ip" == "" ]; do
-			target_ip=$(cat /tmp/dnsmasq.leases | cut -d" " -f3)
-			target_name=$(cat /tmp/dnsmasq.leases | awk '{print $4}')
-			sleep 0.2
-		done
-
-		# callback onNetworkGotIP() of payload script 
-		declare -f onTargetGotIP > /dev/null && onTargetGotIP		
-	)&
-fi
+#if $USB_ETHERNET; then
+#	echo "P4wnP1: Initializing Ethernet over USB..."
+#	source $wdir/boot/init_usb_ethernet.sh
+#
+#	prepare_usb_ethernet # create bridge interface and add RNDIS + CDC ECM, if applicable
+#
+#	create_usb_ethernet_DHCP_config
+#	
+#
+#	(
+#		dnsmasq -C /tmp/dnsmasq_usb_eth.conf
+#	
+#		# callback onNetworkUp() of payload script
+#		declare -f onNetworkUp > /dev/null && onNetworkUp
+#	)&
+#
+#	(
+#		# wait for client to receive DHCP lease
+#		target_ip=""
+#		while [ "$target_ip" == "" ]; do
+#			target_ip=$(cat /tmp/dnsmasq.leases | cut -d" " -f3)
+#			target_name=$(cat /tmp/dnsmasq.leases | awk '{print $4}')
+#			sleep 0.2
+#		done
+#
+#		# callback onNetworkGotIP() of payload script 
+#		declare -f onTargetGotIP > /dev/null && onTargetGotIP		
+#	)&
+#fi
 
 # take care of AutoSSH reachback
 source $wdir/boot/init_autossh.sh
