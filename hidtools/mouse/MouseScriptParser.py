@@ -28,10 +28,10 @@ class MouseScriptParser:
 		self.valid_commands = {"BUTTONS": 3, "MOVE": 2, "MOVESTEPS": 3, "MOVESTEPPED": 2, "MOVETO": 2, "DELAY": 1, "CLICK": 3, "DOUBLECLICK": 3, "UPDATEDELAYED": 1, "REPEAT": 1, "UPDATE": 0}
 		devfile = ""
 		try:
-			with open("/tmp/device_hid_mouse", "rb") as f:
+			with open("/dev/shm/device_hid_mouse", "rb") as f:
 				devfile = f.readline().replace("\n", "")
 		except IOError:
-			print "/tmp/device_hid_mouse missing, mouse seems to be disabled!"
+			print "/dev/shm/device_hid_mouse missing, mouse seems to be disabled!"
 			sys.exit()
 		self.mouse = hid_mouse(False, devfile)
 
