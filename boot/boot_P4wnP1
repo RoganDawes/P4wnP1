@@ -139,66 +139,28 @@ if $WIFI || $USB_ETHERNET; then
 fi
 
 
-
-
-# if ethernet over USB is in use, detect active interface and start DHCP (all as background job)
-#if $USB_ETHERNET; then
-#	echo "P4wnP1: Initializing Ethernet over USB..."
-#	source $wdir/boot/init_usb_ethernet.sh
-#
-#	prepare_usb_ethernet # create bridge interface and add RNDIS + CDC ECM, if applicable
-#
-#	create_usb_ethernet_DHCP_config
-#	
-#
-#	(
-#		dnsmasq -C /tmp/dnsmasq_usb_eth.conf
-#	
-#		# callback onNetworkUp() of payload script
-#		declare -f onNetworkUp > /dev/null && onNetworkUp
-#	)&
-#
-#	(
-#		# wait for client to receive DHCP lease
-#		target_ip=""
-#		while [ "$target_ip" == "" ]; do
-#			target_ip=$(cat /tmp/dnsmasq.leases | cut -d" " -f3)
-#			target_name=$(cat /tmp/dnsmasq.leases | awk '{print $4}')
-#			sleep 0.2
-#		done
-#
-#		# callback onNetworkGotIP() of payload script 
-#		declare -f onTargetGotIP > /dev/null && onTargetGotIP		
-#	)&
-#fi
-
 # take care of AutoSSH reachback
 source $wdir/boot/init_autossh.sh
 start_autossh # start_autossh takes care of checking AUTOSSH_ENABLED
 
-if $USE_HID_MOUSE; then
-	# import mouse functions
-	source $wdir/boot/init_hid_mouse.sh
-	declare -f outmouse >> /tmp/profile.sh
-	chown pi:pi /tmp/profile.sh
-fi
+#if $USE_HID_MOUSE; then
+#	# import mouse functions
+#	source $wdir/boot/init_hid_mouse.sh
+#	declare -f outmouse >> /tmp/profile.sh
+#	chown pi:pi /tmp/profile.sh
+#fi
 
 if $USE_HID; then
 	# import keyboard functions
-	source $wdir/boot/init_hid_keyboard.sh
-	
-	declare -f outhid >> /tmp/profile.sh
-	declare -f duckhid >> /tmp/profile.sh
-	chown pi:pi /tmp/profile.sh
+#	source $wdir/boot/init_hid_keyboard.sh
+#	chown pi:pi /tmp/profile.sh
 
 	# if HID keyboard should be tested for readyness, do it (triggers "onKeyboardUp" callback of payload)
 	if $HID_KEYBOARD_TEST; then
-#		detect_HID_keyboard&
-
 		(
 		        echo "Waiting for HID keyboard to be usable..."
 			# blocking read of LED status
-			python -c "with open('/dev/hidg0','rb') as f:  print ord(f.read(1))"
+			key_test
 			# fire 'onKeyboardUp' after read has succeeded
 			declare -f onKeyboardUp > /dev/null && onKeyboardUp
 		)&
