@@ -26,6 +26,11 @@
 GADGETS_DIR="mame82gadget"
 
 
+# ToDo: If USB gadget is reinitialized without Ethernet over USB (RNDIS, CDC ECM or both), the possibly
+#	running DHCP client/server isn't killed (handle by usb_ethernet_helper, not usb_helper).
+#	This is a minor issue, as these processes are killed with every reconfiguration of Ethernet over
+#	USB (command 'init_usb_ethernet')
+
 function init_usb()
 {
 	### INPUT OTIONS
@@ -263,6 +268,14 @@ function init_usb()
 	UDC_DRIVER=$(ls /sys/class/udc | cut -f1 | head -n 1)
 	# bind USB gadget to this UDC driver
 	echo $UDC_DRIVER > UDC
+
+	if [ $? -eq 0 ]; then
+		echo "Enabeling USB device succeeded."
+	else
+		echo "ERROR: Enabeling USB device failed. Too many endpoints used ? Maybe you should disable some functions"
+		deinit_usb
+		return
+	fi
 
 	# time to breath
 	sleep 0.2
