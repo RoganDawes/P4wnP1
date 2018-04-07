@@ -3,7 +3,7 @@
 
 #    This file is part of P4wnP1.
 #
-#    Copyright (c) 2017, Marcus Mengs. 
+#    Copyright (c) 2017, Marcus Mengs.
 #
 #    P4wnP1 is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -156,7 +156,7 @@ EOF
 	fi
 
 #### Note: KARMA attack is done in firmware now, no need to configure it statically, it gets enabled on-demand ###
-	
+
 #	# the following options only apply to hostapd-mana and would fail on legacy hostapd
 #	# as hostapd-mana depends on nexmon driver/firmware we check this, too
 #	if $WIFI_ACCESSPOINT_MANA && $WIFI_NEXMON; then
@@ -212,7 +212,7 @@ function generate_wpa_entry()
 
 	#wpa_passphrase $1 $2 | grep -v -e "#psk"
 	# output result only if valid password was used (8..63 characters)
-	res=$(wpa_passphrase $1 $2) && echo "$res" | grep -v -e "#psk"
+	res=$(wpa_passphrase "$1" "$2") && echo "$res" | grep -v -e "#psk"
 }
 
 function scan_for_essid()
@@ -243,7 +243,7 @@ function generate_wpa_supplicant_conf()
 	# generates temporary configuration (sudo prepended to allow running from user pi if needed)
 	sudo bash -c "cat /etc/wpa_supplicant/wpa_supplicant.conf > /tmp/wpa_supplicant.conf"
 
-	# ToDo: check if configured WiFi ESSID already exists, 
+	# ToDo: check if configured WiFi ESSID already exists,
 	# if
 	#	WIFI_CLIENT_STORE_NETWORK == true
 	#	WIFI_CLIENT_OVERWRITE_PSK == true
@@ -253,10 +253,10 @@ function generate_wpa_supplicant_conf()
 	#	WIFI_CLIENT_STORE_NETWORK == false
 	# delete the network entry, to overwrite the old entry in next step (but don't store it later on)
 
-	generate_wpa_entry $1 $2 > /tmp/current_wpa.conf
+	generate_wpa_entry "$1" "$2" > /tmp/current_wpa.conf
 	sudo bash -c 'cat /tmp/current_wpa.conf >> /tmp/wpa_supplicant.conf'
 
-	# ToDo: store the new network back to persistent config 
+	# ToDo: store the new network back to persistent config
 	# if
 	#	WIFI_CLIENT_STORE_NETWORK == true
 	# cat /tmp/wpa_supplicant.conf > /etc/wpa_supplicant/wpa_supplicant.conf # store config change
@@ -280,7 +280,7 @@ function start_wifi_client()
 
 	if $WIFI_CLIENT; then
 		echo "Try to find WiFi $WIFI_CLIENT_SSID"
-		res=$(scan_for_essid $WIFI_CLIENT_SSID)
+		res=$(scan_for_essid "$WIFI_CLIENT_SSID")
 		if [ "$res" == "WPA2_PSK" ]; then
 			echo "Network $WIFI_CLIENT_SSID found"
 			echo "... creating config"
