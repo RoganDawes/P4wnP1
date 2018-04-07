@@ -45,11 +45,29 @@
 #		- use `interact <SESSION NUMBER>` to spawn a shell (comms are slow on this channel, so be patient)
 #		- press [CTRL + C] during interaction to bring up a menu for the session
 #
-# Client agent code:	
-# C2 server code:
+# Additional notes:
+
+# - the target is still able to connect to WiFi networks and use them, but the payload impacts throughput of valid
+# communications as scans are issued rapidly
+# - the cleint agent is tested against Win 7 64 / Win 10 64 with Intel WiFi adapters, but still considered 
+# experimental (no support)
+# - If HIDE_AGENT_WINDOW=false is set, the client agent console is kept visible and displays debug output (the curently
+# shipped payload is a DEBUG build)
+# - the payload requires latest P4wnP1 installation (modifications to WiFi kernel modules and driver stack) to
+# work and should run on kernel 4.9.78+
 #
-
-
+# Client agent code:
+#	https://github.com/mame82/P4wnP1_WiFi_covert_channel_client/blob/master/NWiFi/Agent.cs
+# C2 server code:
+#	https://github.com/mame82/P4wnP1_nexmon_additions/blob/master/wifi_server.py
+# WiFi driver + firmware mod:
+#	not yet published, compiled version in latest P4wnP1_nexmon_additions
+# Firmware interaction layer:
+#	https://github.com/mame82/P4wnP1_nexmon_additions/blob/master/mame82_util.py
+# More detailed descrition:
+#	https://github.com/mame82/P4wnP1_WiFi_covert_channel_client/blob/master/README.md
+# Video demo:
+#   https://www.youtube.com/watch?v=fbUBQeD0JtA
 
 HIDE_AGENT_WINDOW=true # if true, a powershell stub gets added, which hides the target window during keystroke injection
 
