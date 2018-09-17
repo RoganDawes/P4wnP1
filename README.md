@@ -3,6 +3,16 @@ P4wnP1 by MaMe82
 
 P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspberry Pi Zero or Raspberry Pi Zero W (required for HID backdoor).
 
+Important
+---------
+
+This repo isn't really suspended, but I'm using all of my time to work on P4wnP1's successor. 
+The new Repo is still private, but information on progress are published via twitter, from time to time ([@P4wnP1](https://twitter.com/p4wnp1) or [@MaMe82](https://twitter.com/mame82)).
+
+**More important:** Don't waste your time following complicated install instructions: A ready-to-go image of latest P4wnP1 version could be found on the release page:
+https://github.com/mame82/P4wnP1/releases (seems some of you missed it).
+  
+
 TL;TR
 -----
 

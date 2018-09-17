@@ -1,5 +1,8 @@
 # P4wnP1 Install Guide
 
+Don't waste your time following complicated install instructions: A ready-to-go image of latest P4wnP1 version could be found on the release page:
+https://github.com/mame82/P4wnP1/releases (seems some of you missed it).
+
 ## Step 1 - Install Raspbian Lite
  1.  Download: 
  [Jessie Lite image](http://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2017-07-05/) 
