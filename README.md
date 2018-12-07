@@ -6,6 +6,8 @@ P4wnP1 is a highly customizable USB attack platform, based on a low cost Raspber
 Important
 ---------
 
+**The successor of P4wnP1 is called P4wnP1 A.L.O.A. and hosted here:** https://github.com/mame82/P4wnP1_aloa
+
 This repo isn't really suspended, but I'm using all of my time to work on P4wnP1's successor. 
 The new Repo is still private, but information on progress are published via twitter, from time to time ([@P4wnP1](https://twitter.com/p4wnp1) or [@MaMe82](https://twitter.com/mame82)).
 
